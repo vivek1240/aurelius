@@ -3,17 +3,13 @@ streamlit==1.52.2
 plotly==6.5.0
 openai==2.14.0
 
-# AI/Agents
-pyautogen==0.2.35
-
 # Financial libraries
 finnhub-python==2.4.26
 yfinance==1.0
-mplfinance==0.12.10b0
 
 # Data handling
-numpy==1.26.4
 pandas==2.0.3
+numpy==1.26.4
 requests==2.31.0
 
 # Utilities
