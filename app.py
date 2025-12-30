@@ -570,10 +570,23 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Initialize API keys
+# Initialize API keys (supports both Streamlit Cloud secrets and local files)
 @st.cache_resource
 def init_api_keys():
     try:
+        # Try Streamlit secrets first (for cloud deployment)
+        if hasattr(st, 'secrets'):
+            try:
+                if 'finnhub' in st.secrets and 'api_key' in st.secrets['finnhub']:
+                    os.environ['FINNHUB_API_KEY'] = st.secrets['finnhub']['api_key']
+                if 'fmp' in st.secrets and 'api_key' in st.secrets['fmp']:
+                    os.environ['FMP_API_KEY'] = st.secrets['fmp']['api_key']
+                if os.environ.get('FINNHUB_API_KEY'):
+                    return True
+            except:
+                pass
+        
+        # Fall back to local config file
         config_path = os.path.join(os.path.dirname(__file__), "config_api_keys")
         if os.path.exists(config_path):
             register_keys_from_json(config_path)
@@ -581,6 +594,25 @@ def init_api_keys():
     except Exception as e:
         st.warning(f"Could not load API keys: {e}")
     return False
+
+# Get OpenAI API key (supports both Streamlit secrets and local file)
+def get_openai_key():
+    # Try Streamlit secrets first
+    if hasattr(st, 'secrets'):
+        try:
+            if 'openai' in st.secrets and 'api_key' in st.secrets['openai']:
+                return st.secrets['openai']['api_key']
+        except:
+            pass
+    
+    # Fall back to local config file
+    config_path = os.path.join(os.path.dirname(__file__), "OAI_CONFIG_LIST")
+    if os.path.exists(config_path):
+        with open(config_path, 'r') as f:
+            config = json.load(f)
+            if config and len(config) > 0:
+                return config[0].get('api_key', '')
+    return None
 
 # Initialize
 api_keys_loaded = init_api_keys()
@@ -1095,16 +1127,9 @@ elif page == "🔮 The Oracle":
     try:
         from openai import OpenAI
         
-        # Load API key from config
-        config_path = os.path.join(os.path.dirname(__file__), "OAI_CONFIG_LIST")
-        openai_key = None
-        if os.path.exists(config_path):
-            with open(config_path, 'r') as f:
-                config = json.load(f)
-                if config and len(config) > 0:
-                    openai_key = config[0].get('api_key', '')
-        
-        openai_available = openai_key and not openai_key.startswith('<')
+        # Load API key (from Streamlit secrets or local config)
+        openai_key = get_openai_key()
+        openai_available = openai_key and not openai_key.startswith('<') and not openai_key.startswith('sk-your')
     except:
         openai_available = False
     
@@ -1129,7 +1154,7 @@ elif page == "🔮 The Oracle":
     
     if run_agent and user_query:
         if not openai_available:
-            st.error("⚠️ OpenAI API key not configured. Please add your API key to OAI_CONFIG_LIST")
+            st.error("⚠️ OpenAI API key not configured. Add your key to Streamlit secrets or OAI_CONFIG_LIST")
         else:
             # Progress tracking
             progress_bar = st.progress(0)
