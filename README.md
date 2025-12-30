@@ -1,3 +1,15 @@
+---
+title: AURELIUS
+emoji: 🏛️
+colorFrom: yellow
+colorTo: green
+sdk: streamlit
+sdk_version: 1.52.2
+app_file: app.py
+pinned: false
+license: mit
+---
+
 <div align="center">
 
 # 🏛️ AURELIUS
@@ -36,22 +48,22 @@ conda activate aurelius
 ### 2. Install Dependencies
 
 ```bash
-cd FinRobot
-pip install -e .
+pip install -r requirements.txt
 ```
 
 ### 3. Configure API Keys
 
-Rename and edit the configuration files:
+For local development, create `.streamlit/secrets.toml`:
 
-```bash
-# OpenAI Configuration
-cp OAI_CONFIG_LIST_sample OAI_CONFIG_LIST
-# Edit with your OpenAI API key
+```toml
+[openai]
+api_key = "your-openai-api-key"
 
-# Financial Data APIs
-cp config_api_keys_sample config_api_keys
-# Edit with your Finnhub, FMP, and SEC API keys
+[finnhub]
+api_key = "your-finnhub-api-key"
+
+[fmp]
+api_key = "your-fmp-api-key"
 ```
 
 ### 4. Launch the Platform
@@ -81,7 +93,7 @@ AURELIUS
 │   ├── toolkits.py       # Agent tools
 │   └── utils.py          # Helpers
 ├── configs/              # Configuration files
-└── tutorials/            # Getting started guides
+└── .streamlit/           # Streamlit configuration
 ```
 
 ## 🎨 Design Philosophy

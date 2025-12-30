@@ -570,17 +570,23 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Initialize API keys (supports both Streamlit Cloud secrets and local files)
+# Initialize API keys (supports Streamlit Cloud, Hugging Face Spaces, and local files)
 @st.cache_resource
 def init_api_keys():
     try:
-        # Try Streamlit secrets first (for cloud deployment)
+        # Try environment variables first (for Hugging Face Spaces)
+        if os.environ.get('FINNHUB_API_KEY') or os.environ.get('OPENAI_API_KEY'):
+            return True
+        
+        # Try Streamlit secrets (for Streamlit Cloud)
         if hasattr(st, 'secrets'):
             try:
                 if 'finnhub' in st.secrets and 'api_key' in st.secrets['finnhub']:
                     os.environ['FINNHUB_API_KEY'] = st.secrets['finnhub']['api_key']
                 if 'fmp' in st.secrets and 'api_key' in st.secrets['fmp']:
                     os.environ['FMP_API_KEY'] = st.secrets['fmp']['api_key']
+                if 'openai' in st.secrets and 'api_key' in st.secrets['openai']:
+                    os.environ['OPENAI_API_KEY'] = st.secrets['openai']['api_key']
                 if os.environ.get('FINNHUB_API_KEY'):
                     return True
             except:
@@ -595,9 +601,13 @@ def init_api_keys():
         st.warning(f"Could not load API keys: {e}")
     return False
 
-# Get OpenAI API key (supports both Streamlit secrets and local file)
+# Get OpenAI API key (supports env vars, Streamlit secrets, and local file)
 def get_openai_key():
-    # Try Streamlit secrets first
+    # Try environment variable first (for Hugging Face Spaces)
+    if os.environ.get('OPENAI_API_KEY'):
+        return os.environ.get('OPENAI_API_KEY')
+    
+    # Try Streamlit secrets
     if hasattr(st, 'secrets'):
         try:
             if 'openai' in st.secrets and 'api_key' in st.secrets['openai']:
