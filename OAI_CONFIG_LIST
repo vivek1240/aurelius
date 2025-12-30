@@ -1,14 +1,6 @@
 [
     {
         "model": "gpt-4",
-        "api_key": "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"
-    },
-    {
-        "model": "gpt-4o-search-preview",
-        "api_key": "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"
-    },
-    {
-        "model": "gpt-4-1106-vision-preview",
-        "api_key": "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"
+        "api_key": ""
     }
 ]
