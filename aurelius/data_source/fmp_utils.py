@@ -5,7 +5,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 from ..utils import decorate_all_methods, get_next_weekday
 
-# from finrobot.utils import decorate_all_methods, get_next_weekday
+# from aurelius.utils import decorate_all_methods, get_next_weekday
 from functools import wraps
 from typing import Annotated, List
 
@@ -248,7 +248,7 @@ class FMPUtils:
 
 
 if __name__ == "__main__":
-    from finrobot.utils import register_keys_from_json
+    from aurelius.utils import register_keys_from_json
 
     register_keys_from_json("config_api_keys")
     FMPUtils.get_sec_report("NEE", "2024")

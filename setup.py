@@ -9,17 +9,17 @@ except:
     REQUIRES = list()
 
 setup(
-    name="FinRobot",
-    version="0.1.5",
+    name="aurelius",
+    version="1.0.0",
     include_package_data=True,
-    author="AI4Finance Foundation",
-    author_email="contact@ai4finance.org",
-    url="https://github.com/AI4Finance-Foundation/FinRobot",
+    author="Vivek",
+    author_email="",
+    url="https://github.com/vivek1240/aurelius",
     license="MIT",
     packages=find_packages(),
     install_requires=REQUIRES,
-    description="FinRobot: An Open-Source AI Agent Platform for Financial Applications using LLMs",
-    long_description="""FinRobot""",
+    description="AURELIUS: AI-Powered Wealth Intelligence Platform",
+    long_description="""AURELIUS - Wisdom Meets Wealth""",
     classifiers=[
         # Trove classifiers
         # Full list: https://pypi.python.org/pypi?%3Aaction=list_classifiers
@@ -35,7 +35,7 @@ setup(
         "Programming Language :: Python :: Implementation :: CPython",
         "Programming Language :: Python :: Implementation :: PyPy",
     ],
-    keywords="Financial Large Language Models, AI Agents",
+    keywords="Financial Analysis, AI Agents, Wealth Intelligence, Stock Analysis",
     platforms=["any"],
     python_requires=">=3.10, <3.12",
 )

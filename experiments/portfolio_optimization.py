@@ -1,7 +1,7 @@
 import autogen
-from finrobot.agents.workflow import MultiAssistant, MultiAssistantWithLeader
-from finrobot.functional import get_rag_function
-from finrobot.utils import register_keys_from_json
+from aurelius.agents.workflow import MultiAssistant, MultiAssistantWithLeader
+from aurelius.functional import get_rag_function
+from aurelius.utils import register_keys_from_json
 from textwrap import dedent
 from autogen import register_function
 from investment_group import group_config

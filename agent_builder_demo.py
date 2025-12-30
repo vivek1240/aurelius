@@ -1,7 +1,7 @@
 import os
 import autogen
 from autogen.agentchat.contrib.agent_builder import AgentBuilder
-from finrobot.utils import get_current_date
+from aurelius.utils import get_current_date
 
 
 config_file_or_env = "OAI_CONFIG_LIST"

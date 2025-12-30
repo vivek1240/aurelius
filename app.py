@@ -12,11 +12,11 @@ import json
 import os
 import sys
 
-# Add the finrobot module to path
+# Add the aurelius module to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from finrobot.utils import register_keys_from_json, get_current_date
-from finrobot.data_source import FinnHubUtils, YFinanceUtils, FMPUtils
+from aurelius.utils import register_keys_from_json, get_current_date
+from aurelius.data_source import FinnHubUtils, YFinanceUtils, FMPUtils
 
 # Page configuration
 st.set_page_config(

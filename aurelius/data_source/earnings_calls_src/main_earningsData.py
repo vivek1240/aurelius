@@ -1,4 +1,4 @@
-from finrobot.data_source.earnings_calls_src.earningsData import get_earnings_transcript
+from aurelius.data_source.earnings_calls_src.earningsData import get_earnings_transcript
 import re
 from langchain.schema import Document
 from tenacity import RetryError

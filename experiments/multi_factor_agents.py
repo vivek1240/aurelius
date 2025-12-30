@@ -3,7 +3,7 @@ import json
 import autogen
 from autogen.cache import Cache
 
-# from finrobot.utils import create_inner_assistant
+# from aurelius.utils import create_inner_assistant
 
 from functools import partial
 

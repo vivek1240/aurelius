@@ -19,7 +19,7 @@ from .utils import *
 from .prompts import leader_system_message, role_system_message
 
 
-class FinRobot(AssistantAgent):
+class AureliusAgent(AssistantAgent):
 
     def __init__(
         self,
@@ -33,7 +33,7 @@ class FinRobot(AssistantAgent):
         if isinstance(agent_config, str):
             orig_name = agent_config
             name = orig_name.replace("_Shadow", "")
-            assert name in library, f"FinRobot {name} not found in agent library."
+            assert name in library, f"Agent {name} not found in agent library."
             agent_config = library[name]
 
         agent_config = self._preprocess_config(agent_config)
@@ -107,7 +107,7 @@ class SingleAssistantBase(ABC):
         agent_config: str | Dict[str, Any],
         llm_config: Dict[str, Any] = {},
     ):
-        self.assistant = FinRobot(
+        self.assistant = AureliusAgent(
             agent_config=agent_config,
             llm_config=llm_config,
             proxy=None,
@@ -240,7 +240,7 @@ class SingleAssistantShadow(SingleAssistant):
         else:
             agent_config_shadow = agent_config + "_Shadow"
 
-        self.assistant_shadow = FinRobot(
+        self.assistant_shadow = AureliusAgent(
             agent_config,
             toolkits=[],
             llm_config=llm_config,
@@ -309,7 +309,7 @@ class MultiAssistantBase(ABC):
         if isinstance(agent_config, ConversableAgent):
             return agent_config
         else:
-            return FinRobot(
+            return AureliusAgent(
                 agent_config,
                 llm_config=self.llm_config,
                 proxy=self.user_proxy,

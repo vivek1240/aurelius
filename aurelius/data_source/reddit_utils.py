@@ -20,7 +20,7 @@ def init_reddit_client(func):
             reddit_client = praw.Reddit(
                 client_id=os.environ["REDDIT_CLIENT_ID"],
                 client_secret=os.environ["REDDIT_CLIENT_SECRET"],
-                user_agent="python:finrobot:v0.1 (by /u/finrobot)",
+                user_agent="python:aurelius:v1.0 (by /u/aurelius)",
             )
             print("Reddit client initialized")
             return func(*args, **kwargs)
@@ -106,7 +106,7 @@ class RedditUtils:
 # Example usage
 if __name__ == "__main__":
 
-    from finrobot.utils import register_keys_from_json
+    from aurelius.utils import register_keys_from_json
 
     register_keys_from_json("../../config_api_keys")
 

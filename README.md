@@ -74,7 +74,7 @@ streamlit run app.py
 ```
 AURELIUS
 ├── app.py                 # Main Streamlit application
-├── finrobot/
+├── aurelius/
 │   ├── agents/           # AI Agent definitions
 │   ├── data_source/      # Market data connectors
 │   ├── functional/       # Analysis utilities

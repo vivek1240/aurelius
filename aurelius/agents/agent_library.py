@@ -1,5 +1,5 @@
-from finrobot.data_source import *
-from finrobot.functional import *
+from aurelius.data_source import *
+from aurelius.functional import *
 from textwrap import dedent
 
 library = [
