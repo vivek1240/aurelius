@@ -1,43 +1,20 @@
-pyautogen>=0.2.19
-ipython
-huggingface_hub
-matplotlib
+# Core
+streamlit==1.52.2
+plotly==6.5.0
+openai==2.14.0
 
-# financial libraries
-finnhub-python
-yfinance
-mplfinance
-backtrader
-sec_api
+# AI/Agents
+pyautogen==0.2.35
 
-# data handling
-numpy
-pandas
-pyPDF2
-reportlab
-pyautogen[retrievechat]
+# Financial libraries
+finnhub-python==2.4.26
+yfinance==1.0
+mplfinance==0.12.10b0
 
-# packaging
-setuptools>=41.4.0
-wheel>=0.33.6
-
-# historical data
-praw
-tushare
-pandas_datareader
-
-pdfkit==1.0.0
-marker-pdf
-pandas==2.0.3
-aiohttp==3.8.5
-langchain==0.1.20
-nltk==3.8.1
+# Data handling
 numpy==1.26.4
-ratelimit==2.2.1
-Requests==2.31.0
-scikit_learn==1.5.0
-starlette==0.37.2
-tenacity==8.3.0
-tqdm==4.66.1
-typing_extensions==4.9.0
-unstructured==0.8.1
+pandas==2.0.3
+requests==2.31.0
+
+# Utilities
+python-dateutil==2.9.0.post0
