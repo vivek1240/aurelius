@@ -134,6 +134,9 @@ yfinance
 pandas
 sec-api
 praw
-mplfinance
-backtrader
-reportlab
+mplfinance==0.12.10b0
+backtrader==1.9.78.123
+reportlab==4.4.7
+ipython==8.37.0
+pyautogen==0.2.35
+markdownify==1.2.2
