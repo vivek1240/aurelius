@@ -552,18 +552,22 @@ if page == "🤖 AI Command Center":
         del st.session_state.pending_prompt
     
     if user_input:
-        # Add user message
+        # Add user message to history
         st.session_state.command_center_messages.append({"role": "user", "content": user_input})
         
-        with st.spinner("🤖 AI is thinking..."):
-            try:
-                client = OpenAI(api_key=openai_key)
-                
-                # Build messages for API
-                api_messages = [
-                    {
-                        "role": "system",
-                        "content": """You are AURELIUS, an expert AI financial analyst assistant. You have access to various tools to help users analyze stocks, create charts, run backtests, and get financial data.
+        # Display user message immediately
+        with st.chat_message("user"):
+            st.write(user_input)
+        
+        # Process AI response
+        try:
+            client = OpenAI(api_key=openai_key)
+            
+            # Build messages for API
+            api_messages = [
+                {
+                    "role": "system",
+                    "content": """You are AURELIUS, an expert AI financial analyst assistant. You have access to various tools to help users analyze stocks, create charts, run backtests, and get financial data.
 
 When users ask about stocks or financial analysis:
 1. Use the appropriate tools to get data
@@ -572,14 +576,17 @@ When users ask about stocks or financial analysis:
 4. If creating charts, mention that a chart has been generated
 
 Always be helpful, professional, and data-driven. Format responses clearly with sections if needed."""
-                    }
-                ]
+                }
+            ]
+            
+            # Add chat history (last 10 messages)
+            for msg in st.session_state.command_center_messages[-10:]:
+                api_messages.append({"role": msg["role"], "content": msg["content"]})
+            
+            # First call: Check if tools are needed (non-streamed)
+            with st.status("🔍 Analyzing your request...", expanded=True) as status:
+                st.write("Determining the best approach...")
                 
-                # Add chat history (last 10 messages)
-                for msg in st.session_state.command_center_messages[-10:]:
-                    api_messages.append({"role": msg["role"], "content": msg["content"]})
-                
-                # Call OpenAI with tools
                 response = client.chat.completions.create(
                     model="gpt-4o",
                     messages=api_messages,
@@ -590,15 +597,31 @@ Always be helpful, professional, and data-driven. Format responses clearly with 
                 )
                 
                 assistant_message = response.choices[0].message
+                images = []
                 
                 # Check if tools were called
                 if assistant_message.tool_calls:
                     tool_results = []
-                    images = []
                     
                     for tool_call in assistant_message.tool_calls:
                         tool_name = tool_call.function.name
                         tool_args = json.loads(tool_call.function.arguments)
+                        
+                        # Show which tool is being used
+                        tool_display_names = {
+                            "get_stock_data": "📈 Fetching stock data",
+                            "create_stock_chart": "📊 Creating chart",
+                            "get_income_statement": "💰 Getting income statement",
+                            "get_balance_sheet": "📋 Getting balance sheet",
+                            "get_cash_flow": "💵 Getting cash flow",
+                            "get_company_profile": "🏢 Getting company profile",
+                            "get_stock_news": "📰 Fetching news",
+                            "run_backtest": "⚔️ Running backtest",
+                            "compare_to_sp500": "📊 Comparing to S&P 500",
+                            "get_risk_metrics": "📉 Calculating risk metrics",
+                            "get_segment_analysis": "🔍 Analyzing segments"
+                        }
+                        st.write(tool_display_names.get(tool_name, f"🔧 Using {tool_name}..."))
                         
                         # Execute tool
                         result = ToolExecutor.execute(tool_name, tool_args)
@@ -616,41 +639,74 @@ Always be helpful, professional, and data-driven. Format responses clearly with 
                             "content": result_text
                         })
                     
-                    # Get final response with tool results
+                    # Prepare messages for final response
                     api_messages.append(assistant_message)
                     for tr in tool_results:
                         api_messages.append(tr)
                     
-                    final_response = client.chat.completions.create(
+                    status.update(label="✅ Data gathered! Generating response...", state="running")
+                else:
+                    status.update(label="✅ Ready!", state="complete")
+            
+            # Stream the final response
+            with st.chat_message("assistant"):
+                if assistant_message.tool_calls:
+                    # Stream final response after tool execution
+                    stream = client.chat.completions.create(
                         model="gpt-4o",
                         messages=api_messages,
                         temperature=0.7,
-                        max_tokens=2000
+                        max_tokens=2000,
+                        stream=True
                     )
                     
-                    ai_response = final_response.choices[0].message.content
+                    # Use st.write_stream for streaming display
+                    response_placeholder = st.empty()
+                    full_response = ""
                     
-                    # Add assistant response with images
-                    st.session_state.command_center_messages.append({
-                        "role": "assistant", 
-                        "content": ai_response,
-                        "images": images if images else []
-                    })
+                    for chunk in stream:
+                        if chunk.choices[0].delta.content:
+                            full_response += chunk.choices[0].delta.content
+                            response_placeholder.markdown(full_response + "▌")
                     
+                    # Final render without cursor
+                    response_placeholder.markdown(full_response)
+                    ai_response = full_response
+                    
+                    # Display images after response
+                    if images:
+                        for img_data in images:
+                            st.image(f"data:image/png;base64,{img_data}", use_container_width=True)
                 else:
-                    ai_response = assistant_message.content
+                    # Stream direct response (no tools)
+                    stream = client.chat.completions.create(
+                        model="gpt-4o",
+                        messages=api_messages,
+                        temperature=0.7,
+                        max_tokens=2000,
+                        stream=True
+                    )
                     
-                    # Add assistant response without images
-                    st.session_state.command_center_messages.append({
-                        "role": "assistant", 
-                        "content": ai_response,
-                        "images": []
-                    })
-                
-                st.rerun()
-                
-            except Exception as e:
-                st.error(f"Error: {str(e)}")
+                    response_placeholder = st.empty()
+                    full_response = ""
+                    
+                    for chunk in stream:
+                        if chunk.choices[0].delta.content:
+                            full_response += chunk.choices[0].delta.content
+                            response_placeholder.markdown(full_response + "▌")
+                    
+                    response_placeholder.markdown(full_response)
+                    ai_response = full_response
+            
+            # Add to session state for history
+            st.session_state.command_center_messages.append({
+                "role": "assistant", 
+                "content": ai_response,
+                "images": images if images else []
+            })
+            
+        except Exception as e:
+            st.error(f"Error: {str(e)}")
     
     # Clear chat button
     col1, col2, col3 = st.columns([1, 1, 1])
