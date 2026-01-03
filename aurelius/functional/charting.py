@@ -1,4 +1,6 @@
 import os
+import matplotlib
+matplotlib.use('Agg')  # Use non-interactive backend for headless operation
 import mplfinance as mpf
 import pandas as pd
 
@@ -12,6 +14,7 @@ from ..data_source.yfinance_utils import YFinanceUtils
 
 class MplFinanceUtils:
 
+    @staticmethod
     def plot_stock_price_chart(
         ticker_symbol: Annotated[
             str, "Ticker symbol of the stock (e.g., 'AAPL' for Apple)"
@@ -73,6 +76,7 @@ class MplFinanceUtils:
 
 class ReportChartUtils:
 
+    @staticmethod
     def get_share_performance(
         ticker_symbol: Annotated[
             str, "Ticker symbol of the stock (e.g., 'AAPL' for Apple)"
@@ -149,6 +153,7 @@ class ReportChartUtils:
         plt.close()
         return f"last year stock performance chart saved to <img {plot_path}>"
 
+    @staticmethod
     def get_pe_eps_performance(
         ticker_symbol: Annotated[
             str, "Ticker symbol of the stock (e.g., 'AAPL' for Apple)"
