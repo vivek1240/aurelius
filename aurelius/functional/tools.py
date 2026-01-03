@@ -18,6 +18,7 @@ from .analyzer import ReportAnalysisUtils
 from .strategies import STRATEGY_REGISTRY, STRATEGY_INFO
 from .comparison import StockComparator
 from .earnings import EarningsIntel
+from .storage import WatchlistManager, ResearchManager, AlertManager
 
 
 # ============================================================================
@@ -312,6 +313,40 @@ TOOL_DEFINITIONS = [
                 "required": ["ticker"]
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "manage_watchlist",
+            "description": "Add or remove stocks from watchlist, view watchlist items, or save research notes. Use this to track stocks you're interested in.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["add", "remove", "list", "save_note", "get_notes"],
+                        "description": "Action to perform: 'add' a stock, 'remove' a stock, 'list' watchlist items, 'save_note' for research, 'get_notes' for a ticker"
+                    },
+                    "ticker": {
+                        "type": "string",
+                        "description": "Stock ticker symbol (required for add, remove, save_note, get_notes)"
+                    },
+                    "notes": {
+                        "type": "string",
+                        "description": "Notes to save (for add or save_note action)"
+                    },
+                    "target_price": {
+                        "type": "number",
+                        "description": "Target price for the stock (optional for add action)"
+                    },
+                    "note_title": {
+                        "type": "string",
+                        "description": "Title for research note (for save_note action)"
+                    }
+                },
+                "required": ["action"]
+            }
+        }
     }
 ]
 
@@ -354,6 +389,8 @@ class ToolExecutor:
                 return ToolExecutor._compare_stocks(**arguments)
             elif tool_name == "get_earnings_intel":
                 return ToolExecutor._get_earnings_intel(**arguments)
+            elif tool_name == "manage_watchlist":
+                return ToolExecutor._manage_watchlist(**arguments)
             else:
                 return {"error": f"Unknown tool: {tool_name}"}
         except Exception as e:
@@ -747,6 +784,150 @@ class ToolExecutor:
             
             return result
             
+        except Exception as e:
+            return {"error": str(e)}
+    
+    @staticmethod
+    def _manage_watchlist(
+        action: str,
+        ticker: str = None,
+        notes: str = None,
+        target_price: float = None,
+        note_title: str = None
+    ) -> Dict[str, Any]:
+        """Manage watchlist and research notes"""
+        try:
+            watchlist_mgr = WatchlistManager()
+            research_mgr = ResearchManager()
+            
+            if action == "add":
+                if not ticker:
+                    return {"error": "Ticker is required for add action"}
+                
+                # Get current price if not provided
+                if target_price is None:
+                    try:
+                        stock_info = YFinanceUtils.get_stock_info(ticker.upper())
+                        current_price = stock_info.get("currentPrice") or stock_info.get("regularMarketPrice", 0)
+                    except:
+                        current_price = None
+                else:
+                    current_price = None
+                
+                result = watchlist_mgr.add_to_watchlist(
+                    ticker=ticker,
+                    added_price=current_price,
+                    target_price=target_price,
+                    notes=notes or ""
+                )
+                
+                if result["success"]:
+                    return {
+                        "action": "added",
+                        "ticker": ticker.upper(),
+                        "message": f"✅ Added {ticker.upper()} to your watchlist",
+                        "added_price": current_price,
+                        "target_price": target_price,
+                        "notes": notes
+                    }
+                return {"error": result["message"]}
+            
+            elif action == "remove":
+                if not ticker:
+                    return {"error": "Ticker is required for remove action"}
+                
+                result = watchlist_mgr.remove_from_watchlist(ticker=ticker)
+                if result["success"]:
+                    return {
+                        "action": "removed",
+                        "ticker": ticker.upper(),
+                        "message": f"✅ Removed {ticker.upper()} from your watchlist"
+                    }
+                return {"error": result["message"]}
+            
+            elif action == "list":
+                items = watchlist_mgr.get_watchlist_items()
+                
+                if not items:
+                    return {
+                        "action": "list",
+                        "message": "Your watchlist is empty. Add stocks using 'Add TICKER to watchlist'",
+                        "items": []
+                    }
+                
+                # Get current prices for watchlist items
+                watchlist_data = []
+                for item in items:
+                    ticker = item["ticker"]
+                    try:
+                        stock_info = YFinanceUtils.get_stock_info(ticker)
+                        current_price = stock_info.get("currentPrice") or stock_info.get("regularMarketPrice", 0)
+                        
+                        added_price = item.get("added_price", 0) or 0
+                        change_pct = ((current_price - added_price) / added_price * 100) if added_price else 0
+                        
+                        watchlist_data.append({
+                            "ticker": ticker,
+                            "current_price": round(current_price, 2),
+                            "added_price": round(added_price, 2) if added_price else None,
+                            "change_pct": round(change_pct, 2) if added_price else None,
+                            "target_price": item.get("target_price"),
+                            "notes": item.get("notes"),
+                            "added_at": item.get("added_at")
+                        })
+                    except:
+                        watchlist_data.append({
+                            "ticker": ticker,
+                            "current_price": None,
+                            "added_price": item.get("added_price"),
+                            "target_price": item.get("target_price"),
+                            "notes": item.get("notes"),
+                            "added_at": item.get("added_at")
+                        })
+                
+                return {
+                    "action": "list",
+                    "message": f"📋 Your watchlist has {len(watchlist_data)} stocks",
+                    "items": watchlist_data
+                }
+            
+            elif action == "save_note":
+                if not ticker:
+                    return {"error": "Ticker is required for save_note action"}
+                if not notes:
+                    return {"error": "Notes content is required"}
+                
+                title = note_title or f"Research Note - {ticker.upper()}"
+                result = research_mgr.save_note(
+                    ticker=ticker,
+                    title=title,
+                    content=notes,
+                    note_type="research"
+                )
+                
+                return {
+                    "action": "note_saved",
+                    "ticker": ticker.upper(),
+                    "message": f"📝 Research note saved for {ticker.upper()}",
+                    "title": title
+                }
+            
+            elif action == "get_notes":
+                if not ticker:
+                    return {"error": "Ticker is required for get_notes action"}
+                
+                notes_list = research_mgr.get_notes_for_ticker(ticker)
+                
+                return {
+                    "action": "notes_retrieved",
+                    "ticker": ticker.upper(),
+                    "message": f"Found {len(notes_list)} notes for {ticker.upper()}",
+                    "notes": notes_list
+                }
+            
+            else:
+                return {"error": f"Unknown action: {action}. Use 'add', 'remove', 'list', 'save_note', or 'get_notes'"}
+        
         except Exception as e:
             return {"error": str(e)}
 

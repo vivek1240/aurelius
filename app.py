@@ -444,7 +444,7 @@ with st.sidebar:
     st.markdown("<p style='color: #a0a0a8; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.75rem; font-weight: 600;'>Navigation</p>", unsafe_allow_html=True)
     page = st.radio(
         "Navigation",
-        ["🤖 AI Command Center", "🎛️ Command Deck", "🔬 Deep Scan", "🏛️ The Vault", "📈 Earnings Intel", "📊 Comparator", "📡 Signal Wire", "🔮 The Oracle", "⚔️ Backtest Arena", "📑 Report Forge", "📱 Social Pulse", "📚 Research Library"],
+        ["🤖 AI Command Center", "🎛️ Command Deck", "🔬 Deep Scan", "🏛️ The Vault", "📈 Earnings Intel", "📊 Comparator", "📌 Watchlist", "📡 Signal Wire", "🔮 The Oracle", "⚔️ Backtest Arena", "📑 Report Forge", "📱 Social Pulse", "📚 Research Library"],
         label_visibility="collapsed"
     )
     
@@ -507,6 +507,7 @@ if page == "🤖 AI Command Center":
         | 🏢 **Company Info** | Company profile, news, key metrics | *"Tell me about Apple"* |
         | 🆚 **Compare Stocks** | Compare multiple stocks side-by-side on financials, valuations & performance | *"Compare NVDA, AMD, INTC"* |
         | 📈 **Earnings Intel** | EPS history, beat rates, analyst estimates, next earnings | *"Show earnings for NVDA"* |
+        | 📌 **Watchlist** | Add/remove stocks, view watchlist, save research notes | *"Add NVDA to watchlist"* |
         """)
     
     st.divider()
@@ -1062,15 +1063,15 @@ elif page == "🔬 Deep Scan":
                         else:
                             # Use Plotly for standard chart types
                             fig = go.Figure()
-                            
+                        
                             # Dynamic chart type
                             if chart_type == "Candlestick":
                                 fig.add_trace(go.Candlestick(
-                                    x=stock_data.index,
-                                    open=stock_data['Open'],
-                                    high=stock_data['High'],
-                                    low=stock_data['Low'],
-                                    close=stock_data['Close'],
+                            x=stock_data.index,
+                            open=stock_data['Open'],
+                            high=stock_data['High'],
+                            low=stock_data['Low'],
+                            close=stock_data['Close'],
                                     name='Price',
                                     increasing_line_color='#00c896',
                                     decreasing_line_color='#ff4757'
@@ -1088,7 +1089,7 @@ elif page == "🔬 Deep Scan":
                                 ))
                             elif chart_type == "Line":
                                 fig.add_trace(go.Scatter(
-                                    x=stock_data.index,
+                            x=stock_data.index,
                                     y=stock_data['Close'],
                                     name='Close Price',
                                     line=dict(color='#d4af37', width=2)
@@ -1109,11 +1110,11 @@ elif page == "🔬 Deep Scan":
                                 ma_col = f'MA{ma_period}'
                                 stock_data[ma_col] = stock_data['Close'].rolling(window=ma_period).mean()
                                 fig.add_trace(go.Scatter(
-                                    x=stock_data.index,
+                            x=stock_data.index,
                                     y=stock_data[ma_col],
                                     name=f'MA{ma_period}',
                                     line=dict(color=ma_colors[i % len(ma_colors)], width=1.5)
-                                ))
+                        ))
                         
                             fig.update_layout(
                                 template="plotly_dark",
@@ -1122,10 +1123,10 @@ elif page == "🔬 Deep Scan":
                                 font=dict(family="DM Sans", color="#a0a0a8"),
                                 xaxis=dict(gridcolor='rgba(255,255,255,0.03)', rangeslider=dict(visible=False)),
                                 yaxis=dict(gridcolor='rgba(255,255,255,0.03)', title="Price ($)"),
-                                height=500,
+                            height=500,
                                 legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
-                            )
-                            
+                        )
+                        
                             st.plotly_chart(fig, use_container_width=True)
                     
                     with tab2:
@@ -1735,6 +1736,234 @@ elif page == "📊 Comparator":
     if 'compare_suggestion' in st.session_state:
         st.info(f"💡 Try comparing: {st.session_state.compare_suggestion}")
         del st.session_state.compare_suggestion
+
+elif page == "📌 Watchlist":
+    # Import storage utilities
+    from aurelius.functional.storage import WatchlistManager, ResearchManager
+    
+    st.title("📌 Watchlist & Research")
+    st.caption("Track your favorite stocks and save research notes for future reference.")
+    
+    st.divider()
+    
+    # Initialize managers
+    watchlist_mgr = WatchlistManager()
+    research_mgr = ResearchManager()
+    
+    # Tabs for different sections
+    tab1, tab2, tab3 = st.tabs(["📋 My Watchlist", "📝 Research Notes", "📊 Analysis History"])
+    
+    with tab1:
+        st.markdown("### 📋 My Watchlist")
+        
+        # Add stock section
+        col1, col2, col3 = st.columns([2, 1, 1])
+        with col1:
+            new_ticker = st.text_input("Add Stock", placeholder="Enter ticker symbol (e.g., NVDA)", key="add_watchlist_ticker").upper().strip()
+        with col2:
+            target_price = st.number_input("Target Price ($)", min_value=0.0, step=1.0, value=0.0, key="add_target_price")
+        with col3:
+            add_notes = st.text_input("Quick Note", placeholder="Optional note", key="add_quick_note")
+        
+        col_add, col_clear = st.columns(2)
+        with col_add:
+            if st.button("➕ Add to Watchlist", use_container_width=True, type="primary"):
+                if new_ticker:
+                    # Get current price
+                    try:
+                        stock_info = YFinanceUtils.get_stock_info(new_ticker)
+                        current_price = stock_info.get("currentPrice") or stock_info.get("regularMarketPrice", 0)
+                    except:
+                        current_price = None
+                    
+                    result = watchlist_mgr.add_to_watchlist(
+                        ticker=new_ticker,
+                        added_price=current_price,
+                        target_price=target_price if target_price > 0 else None,
+                        notes=add_notes
+                    )
+                    
+                    if result["success"]:
+                        st.success(f"✅ Added {new_ticker} to watchlist!")
+                        st.rerun()
+                    else:
+                        st.warning(result["message"])
+                else:
+                    st.warning("Please enter a ticker symbol")
+        
+        st.divider()
+        
+        # Display watchlist
+        watchlist_items = watchlist_mgr.get_watchlist_items()
+        
+        if watchlist_items:
+            st.markdown(f"**{len(watchlist_items)} stocks in your watchlist**")
+            
+            # Create data with current prices
+            watchlist_data = []
+            for item in watchlist_items:
+                ticker_sym = item["ticker"]
+                try:
+                    stock_info = YFinanceUtils.get_stock_info(ticker_sym)
+                    current_price = stock_info.get("currentPrice") or stock_info.get("regularMarketPrice", 0)
+                    
+                    added_price = item.get("added_price", 0) or 0
+                    change_pct = ((current_price - added_price) / added_price * 100) if added_price else 0
+                    
+                    # Target progress
+                    target = item.get("target_price")
+                    if target and added_price:
+                        target_progress = ((current_price - added_price) / (target - added_price) * 100) if target != added_price else 100
+                    else:
+                        target_progress = None
+                    
+                    watchlist_data.append({
+                        "Ticker": ticker_sym,
+                        "Current": f"${current_price:.2f}",
+                        "Added At": f"${added_price:.2f}" if added_price else "N/A",
+                        "Change": f"{change_pct:+.2f}%" if added_price else "N/A",
+                        "Target": f"${target:.2f}" if target else "—",
+                        "Notes": item.get("notes", "")[:30] + "..." if item.get("notes") and len(item.get("notes", "")) > 30 else item.get("notes", "—"),
+                        "Added Date": item.get("added_at", "")[:10] if item.get("added_at") else "N/A"
+                    })
+                except Exception as e:
+                    watchlist_data.append({
+                        "Ticker": ticker_sym,
+                        "Current": "Error",
+                        "Added At": str(item.get("added_price", "N/A")),
+                        "Change": "—",
+                        "Target": str(item.get("target_price", "—")),
+                        "Notes": item.get("notes", "—"),
+                        "Added Date": item.get("added_at", "N/A")[:10] if item.get("added_at") else "N/A"
+                    })
+            
+            # Display as dataframe
+            import pandas as pd
+            df = pd.DataFrame(watchlist_data)
+            st.dataframe(df, use_container_width=True, hide_index=True)
+            
+            # Remove stock section
+            st.markdown("---")
+            col_remove, col_space = st.columns([1, 2])
+            with col_remove:
+                remove_ticker = st.selectbox(
+                    "Remove Stock",
+                    options=[""] + [item["ticker"] for item in watchlist_items],
+                    key="remove_ticker_select"
+                )
+                if remove_ticker and st.button("🗑️ Remove", use_container_width=True):
+                    result = watchlist_mgr.remove_from_watchlist(remove_ticker)
+                    if result["success"]:
+                        st.success(f"Removed {remove_ticker}")
+                        st.rerun()
+        else:
+            st.info("📌 Your watchlist is empty. Add stocks above to start tracking!")
+            
+            # Quick add suggestions
+            st.markdown("**Quick Add Popular Stocks:**")
+            quick_add_cols = st.columns(5)
+            popular_tickers = ["NVDA", "AAPL", "MSFT", "GOOGL", "TSLA"]
+            for i, t in enumerate(popular_tickers):
+                with quick_add_cols[i]:
+                    if st.button(t, key=f"quick_add_{t}", use_container_width=True):
+                        try:
+                            stock_info = YFinanceUtils.get_stock_info(t)
+                            current_price = stock_info.get("currentPrice") or stock_info.get("regularMarketPrice", 0)
+                        except:
+                            current_price = None
+                        watchlist_mgr.add_to_watchlist(ticker=t, added_price=current_price)
+                        st.rerun()
+    
+    with tab2:
+        st.markdown("### 📝 Research Notes")
+        
+        # Save new note
+        with st.expander("➕ Save New Research Note", expanded=False):
+            note_ticker = st.text_input("Stock Ticker", placeholder="e.g., NVDA", key="note_ticker").upper().strip()
+            note_title = st.text_input("Note Title", placeholder="e.g., Q4 Earnings Analysis", key="note_title")
+            note_content = st.text_area("Note Content", placeholder="Write your research notes here...", height=150, key="note_content")
+            
+            if st.button("💾 Save Note", type="primary"):
+                if note_ticker and note_title and note_content:
+                    result = research_mgr.save_note(
+                        ticker=note_ticker,
+                        title=note_title,
+                        content=note_content,
+                        note_type="research"
+                    )
+                    if result["success"]:
+                        st.success(f"✅ Note saved for {note_ticker}!")
+                        st.rerun()
+                else:
+                    st.warning("Please fill in all fields")
+        
+        st.divider()
+        
+        # View notes
+        col_filter, col_search = st.columns(2)
+        with col_filter:
+            filter_ticker = st.text_input("Filter by Ticker", placeholder="Leave empty for all", key="filter_notes_ticker").upper().strip()
+        with col_search:
+            search_query = st.text_input("Search Notes", placeholder="Search in title/content", key="search_notes")
+        
+        # Get notes
+        if search_query:
+            notes = research_mgr.search_notes(search_query)
+        elif filter_ticker:
+            notes = research_mgr.get_notes_for_ticker(filter_ticker)
+        else:
+            notes = research_mgr.get_all_notes(limit=20)
+        
+        if notes:
+            st.markdown(f"**Found {len(notes)} notes**")
+            
+            for note in notes:
+                with st.expander(f"📄 [{note['ticker']}] {note['title']} - {note['created_at'][:10] if note.get('created_at') else 'N/A'}"):
+                    st.markdown(note.get('content', 'No content'))
+                    
+                    col1, col2 = st.columns([3, 1])
+                    with col2:
+                        if st.button("🗑️ Delete", key=f"delete_note_{note['id']}"):
+                            research_mgr.delete_note(note['id'])
+                            st.success("Note deleted")
+                            st.rerun()
+        else:
+            st.info("📝 No research notes yet. Start by saving your first note above!")
+    
+    with tab3:
+        st.markdown("### 📊 Analysis History")
+        st.caption("Track your past analyses and insights")
+        
+        # Get analysis history
+        history = research_mgr.get_analysis_history(limit=20)
+        
+        if history:
+            for item in history:
+                with st.expander(f"🔍 {item['ticker']} - {item['analysis_type']} ({item['created_at'][:10] if item.get('created_at') else 'N/A'})"):
+                    st.markdown(f"**Summary:** {item.get('result_summary', 'No summary')}")
+                    if item.get('full_result'):
+                        st.text_area("Full Result", item['full_result'], height=100, disabled=True, key=f"history_{item['id']}")
+        else:
+            st.info("📊 No analysis history yet. Your analyses will appear here as you use the platform.")
+    
+    # Tips
+    with st.expander("💡 Watchlist Tips"):
+        st.markdown("""
+        **Managing Your Watchlist:**
+        - Add stocks with target prices to track your investment thesis
+        - Use quick notes to remember why you added a stock
+        - Review the Change % to see performance since you added
+        
+        **Research Notes:**
+        - Save detailed analysis for future reference
+        - Search notes by ticker or keywords
+        - Track your investment research over time
+        
+        **AI Integration:**
+        - Say "Add NVDA to watchlist" in the AI Command Center
+        - Ask "Show my watchlist" to see your tracked stocks
+        - Request "Save a note for AAPL" to document research
+        """)
 
 elif page == "📡 Signal Wire":
     st.markdown("## 📡 Signal Wire")

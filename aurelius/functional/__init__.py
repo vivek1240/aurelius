@@ -7,3 +7,4 @@ from .text import TextUtils
 from .rag import get_rag_function
 from .comparison import StockComparator
 from .earnings import EarningsIntel
+from .storage import WatchlistManager, ResearchManager, AlertManager, get_watchlist_manager, get_research_manager
