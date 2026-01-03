@@ -1,6 +1,7 @@
 """
-AURELIUS - AI-Powered Wealth Intelligence Platform
+IKSHVAKU - AI-Powered Wealth Intelligence Platform
 A sophisticated, premium interface for financial analysis using AI agents
+Named after the legendary founder of the Solar Dynasty (Suryavansha)
 """
 
 import streamlit as st
@@ -25,8 +26,8 @@ import base64
 
 # Page configuration
 st.set_page_config(
-    page_title="AURELIUS | Wealth Intelligence",
-    page_icon="🏛️",
+    page_title="IKSHVAKU | Wealth Intelligence",
+    page_icon="☀️",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -409,7 +410,7 @@ with st.sidebar:
             justify-content: center;
             margin: 0 auto 1rem auto;
             font-size: 2rem;
-        ">🏛️</div>
+        ">☀️</div>
         <h2 style="
             margin: 0.5rem 0 0.25rem 0; 
             font-family: 'Outfit', sans-serif;
@@ -419,7 +420,7 @@ with st.sidebar:
             background: linear-gradient(135deg, #f4d03f 0%, #d4af37 50%, #c9a227 100%); 
             -webkit-background-clip: text; 
             -webkit-text-fill-color: transparent;
-        ">AURELIUS</h2>
+        ">IKSHVAKU</h2>
         <p style="color: #6b6b75; font-size: 0.8rem; font-family: 'DM Sans', sans-serif; letter-spacing: 0.05em; text-transform: uppercase;">Wealth Intelligence</p>
     </div>
     """, unsafe_allow_html=True)
@@ -572,7 +573,7 @@ if page == "🤖 AI Command Center":
             api_messages = [
                 {
                     "role": "system",
-                    "content": """You are AURELIUS, an expert AI financial analyst assistant. You have access to various tools to help users analyze stocks, create charts, run backtests, and get financial data.
+                    "content": """You are IKSHVAKU, an expert AI financial analyst assistant named after the legendary founder of the Solar Dynasty. You have access to various tools to help users analyze stocks, create charts, run backtests, and get financial data.
 
 When users ask about stocks or financial analysis:
 1. Use the appropriate tools to get data
@@ -739,7 +740,7 @@ elif page == "🎛️ Command Deck":
             ">AI-Powered</div>
         </div>
         <h1 class="hero-title">Wisdom Meets<br/>Wealth</h1>
-        <p class="hero-subtitle">Like the philosopher-emperor, AURELIUS combines timeless wisdom with cutting-edge AI to deliver institutional-grade analysis and strategic foresight.</p>
+        <p class="hero-subtitle">Named after the legendary founder of the Solar Dynasty, IKSHVAKU illuminates markets with ancient wisdom and cutting-edge AI to deliver institutional-grade analysis and strategic foresight.</p>
         <div style="display: flex; gap: 2rem; margin-top: 2rem; position: relative; z-index: 1;">
             <div style="display: flex; align-items: center; gap: 0.5rem;">
                 <span style="color: #00c896;">◆</span>
@@ -2951,16 +2952,16 @@ st.markdown("""
             align-items: center;
             justify-content: center;
             font-size: 1rem;
-        ">🏛️</div>
+        ">☀️</div>
         <span style="
             font-family: 'Outfit', sans-serif;
             font-weight: 600;
             font-size: 1rem;
             color: #f8f8f8;
-        ">AURELIUS</span>
+        ">IKSHVAKU</span>
     </div>
     <p style="color: #6b6b75; font-size: 0.8rem; margin: 0.5rem 0;">Wealth Intelligence Platform</p>
-    <p style="color: #4a4a52; font-size: 0.7rem; margin: 0.25rem 0; font-style: italic;">"The object of life is not to be on the side of the majority, but to escape finding oneself in the ranks of the insane."</p>
+    <p style="color: #4a4a52; font-size: 0.7rem; margin: 0.25rem 0; font-style: italic;">"धर्मो रक्षति रक्षितः" — Dharma protects those who protect it.</p>
     <div style="display: flex; align-items: center; justify-content: center; gap: 1.5rem; margin-top: 1rem;">
         <span style="color: #4a4a52; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em;">Deep Scan</span>
         <span style="color: #4a4a52;">•</span>
