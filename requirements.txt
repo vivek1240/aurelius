@@ -134,3 +134,6 @@ yfinance
 pandas
 sec-api
 praw
+mplfinance
+backtrader
+reportlab
