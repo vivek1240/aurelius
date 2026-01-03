@@ -3,6 +3,7 @@ import matplotlib
 matplotlib.use('Agg')  # Use non-interactive backend for headless operation
 import mplfinance as mpf
 import pandas as pd
+import numpy as np
 
 from matplotlib import pyplot as plt
 from typing import Annotated, List, Tuple
@@ -523,6 +524,285 @@ class ComparisonCharts:
         plt.close()
         
         return f"Valuation comparison chart saved to <img {save_path}>"
+
+
+class EarningsCharts:
+    """Charts for earnings intelligence visualization"""
+    
+    @staticmethod
+    def eps_surprise_chart(
+        ticker: str,
+        quarters: int = 8,
+        save_path: str = None
+    ) -> str:
+        """
+        Create EPS actual vs estimate chart with surprise indicators
+        
+        Args:
+            ticker: Stock ticker symbol
+            quarters: Number of quarters to show
+            save_path: Path to save the chart
+        
+        Returns:
+            Path to saved chart
+        """
+        from .earnings import EarningsIntel
+        
+        # Get earnings data
+        earnings_data = EarningsIntel.get_earnings_history(ticker, quarters)
+        
+        if not earnings_data.get("quarters"):
+            return "No earnings data available"
+        
+        # Prepare data
+        dates = []
+        eps_estimates = []
+        eps_actuals = []
+        surprises = []
+        
+        for q in reversed(earnings_data["quarters"]):  # Oldest to newest
+            dates.append(q["date"][:7])  # YYYY-MM format
+            eps_estimates.append(q["eps_estimate"] or 0)
+            eps_actuals.append(q["eps_actual"] or 0)
+            surprises.append(q["surprise_pct"] or 0)
+        
+        # Setup plot
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(14, 10), gridspec_kw={'height_ratios': [2, 1]})
+        fig.patch.set_facecolor('#0d0d12')
+        
+        x = np.arange(len(dates))
+        width = 0.35
+        
+        # Top chart: EPS Actual vs Estimate
+        ax1.set_facecolor('#0d0d12')
+        bars1 = ax1.bar(x - width/2, eps_estimates, width, label='EPS Estimate', color='#6366f1', alpha=0.8)
+        bars2 = ax1.bar(x + width/2, eps_actuals, width, label='EPS Actual', color='#d4af37', alpha=0.9)
+        
+        ax1.set_title(f'{ticker} - EPS: Actual vs Estimate', fontsize=16, color='white', fontweight='bold', pad=20)
+        ax1.set_ylabel('EPS ($)', color='#a0a0a8', fontsize=12)
+        ax1.set_xticks(x)
+        ax1.set_xticklabels(dates, rotation=45, ha='right')
+        ax1.tick_params(colors='#a0a0a8')
+        ax1.spines['bottom'].set_color('#333')
+        ax1.spines['top'].set_visible(False)
+        ax1.spines['right'].set_visible(False)
+        ax1.spines['left'].set_color('#333')
+        ax1.grid(True, alpha=0.1, color='white', axis='y')
+        ax1.legend(loc='upper left', facecolor='#1a1a24', edgecolor='#333', labelcolor='white')
+        
+        # Bottom chart: Surprise %
+        ax2.set_facecolor('#0d0d12')
+        colors = ['#00c896' if s >= 0 else '#ff4757' for s in surprises]
+        bars3 = ax2.bar(x, surprises, color=colors, alpha=0.8)
+        
+        # Add value labels on bars
+        for bar, val in zip(bars3, surprises):
+            height = bar.get_height()
+            ax2.annotate(f'{val:+.1f}%',
+                        xy=(bar.get_x() + bar.get_width() / 2, height),
+                        xytext=(0, 3 if height >= 0 else -12),
+                        textcoords="offset points",
+                        ha='center', va='bottom' if height >= 0 else 'top',
+                        color='white', fontsize=9)
+        
+        ax2.axhline(y=0, color='white', linestyle='-', linewidth=0.5, alpha=0.3)
+        ax2.set_title('Earnings Surprise (%)', fontsize=14, color='white', fontweight='bold', pad=10)
+        ax2.set_ylabel('Surprise %', color='#a0a0a8', fontsize=12)
+        ax2.set_xticks(x)
+        ax2.set_xticklabels(dates, rotation=45, ha='right')
+        ax2.tick_params(colors='#a0a0a8')
+        ax2.spines['bottom'].set_color('#333')
+        ax2.spines['top'].set_visible(False)
+        ax2.spines['right'].set_visible(False)
+        ax2.spines['left'].set_color('#333')
+        ax2.grid(True, alpha=0.1, color='white', axis='y')
+        
+        plt.tight_layout()
+        
+        if save_path:
+            plt.savefig(save_path, facecolor='#0d0d12', edgecolor='none', 
+                        bbox_inches='tight', dpi=150)
+        plt.close()
+        
+        return f"EPS surprise chart saved to <img {save_path}>"
+    
+    @staticmethod
+    def revenue_trend_chart(
+        ticker: str,
+        quarters: int = 8,
+        save_path: str = None
+    ) -> str:
+        """
+        Create revenue trend chart with YoY growth
+        
+        Args:
+            ticker: Stock ticker symbol
+            quarters: Number of quarters
+            save_path: Path to save the chart
+        
+        Returns:
+            Path to saved chart
+        """
+        from .earnings import EarningsIntel
+        
+        # Get revenue data
+        revenue_data = EarningsIntel.get_revenue_history(ticker, quarters)
+        
+        if not revenue_data.get("quarters"):
+            return "No revenue data available"
+        
+        # Prepare data
+        dates = []
+        revenues = []
+        growths = []
+        
+        for q in reversed(revenue_data["quarters"]):
+            dates.append(q["date"][:7])
+            revenues.append((q["revenue"] or 0) / 1e9)  # Convert to billions
+            growths.append(q["yoy_growth"] or 0)
+        
+        # Setup plot
+        fig, ax1 = plt.subplots(figsize=(14, 7))
+        fig.patch.set_facecolor('#0d0d12')
+        ax1.set_facecolor('#0d0d12')
+        
+        x = np.arange(len(dates))
+        
+        # Bar chart for revenue
+        bars = ax1.bar(x, revenues, color='#d4af37', alpha=0.8, label='Revenue')
+        ax1.set_xlabel('Quarter', color='#a0a0a8', fontsize=12)
+        ax1.set_ylabel('Revenue ($B)', color='#d4af37', fontsize=12)
+        ax1.tick_params(axis='y', labelcolor='#d4af37')
+        ax1.set_xticks(x)
+        ax1.set_xticklabels(dates, rotation=45, ha='right')
+        ax1.tick_params(colors='#a0a0a8')
+        
+        # Line chart for YoY growth on secondary axis
+        ax2 = ax1.twinx()
+        ax2.set_facecolor('#0d0d12')
+        line = ax2.plot(x, growths, color='#00c896', linewidth=2.5, marker='o', 
+                        markersize=8, label='YoY Growth %')
+        ax2.set_ylabel('YoY Growth (%)', color='#00c896', fontsize=12)
+        ax2.tick_params(axis='y', labelcolor='#00c896')
+        ax2.axhline(y=0, color='white', linestyle='--', linewidth=0.5, alpha=0.3)
+        
+        # Styling
+        ax1.spines['bottom'].set_color('#333')
+        ax1.spines['top'].set_visible(False)
+        ax1.spines['right'].set_visible(False)
+        ax1.spines['left'].set_color('#333')
+        ax2.spines['right'].set_color('#333')
+        ax1.grid(True, alpha=0.1, color='white', axis='y')
+        
+        ax1.set_title(f'{ticker} - Quarterly Revenue & YoY Growth', 
+                      fontsize=16, color='white', fontweight='bold', pad=20)
+        
+        # Combined legend
+        lines1, labels1 = ax1.get_legend_handles_labels()
+        lines2, labels2 = ax2.get_legend_handles_labels()
+        ax1.legend(lines1 + lines2, labels1 + labels2, loc='upper left', 
+                   facecolor='#1a1a24', edgecolor='#333', labelcolor='white')
+        
+        plt.tight_layout()
+        
+        if save_path:
+            plt.savefig(save_path, facecolor='#0d0d12', edgecolor='none', 
+                        bbox_inches='tight', dpi=150)
+        plt.close()
+        
+        return f"Revenue trend chart saved to <img {save_path}>"
+    
+    @staticmethod
+    def analyst_estimates_chart(
+        ticker: str,
+        save_path: str = None
+    ) -> str:
+        """
+        Create analyst price target visualization
+        
+        Args:
+            ticker: Stock ticker symbol
+            save_path: Path to save the chart
+        
+        Returns:
+            Path to saved chart
+        """
+        from .earnings import EarningsIntel
+        
+        # Get analyst data
+        analyst_data = EarningsIntel.get_analyst_estimates(ticker)
+        
+        if not analyst_data.get("price_targets"):
+            return "No analyst data available"
+        
+        pt = analyst_data["price_targets"]
+        current = pt.get("current_price", 0)
+        target_low = pt.get("target_low", 0)
+        target_mean = pt.get("target_mean", 0)
+        target_high = pt.get("target_high", 0)
+        
+        if not all([current, target_low, target_mean, target_high]):
+            return "Incomplete analyst data"
+        
+        # Setup plot
+        fig, ax = plt.subplots(figsize=(10, 6))
+        fig.patch.set_facecolor('#0d0d12')
+        ax.set_facecolor('#0d0d12')
+        
+        # Create horizontal bar showing range
+        y_pos = 0.5
+        
+        # Price range bar
+        ax.barh(y_pos, target_high - target_low, left=target_low, height=0.3, 
+                color='#2d2d3a', alpha=0.8)
+        
+        # Markers
+        ax.plot(current, y_pos, 'o', markersize=20, color='#d4af37', label='Current Price', zorder=5)
+        ax.plot(target_low, y_pos, '|', markersize=30, color='#ff4757', markeredgewidth=3, label='Target Low')
+        ax.plot(target_mean, y_pos, 's', markersize=15, color='#00c896', label='Target Mean', zorder=5)
+        ax.plot(target_high, y_pos, '|', markersize=30, color='#6366f1', markeredgewidth=3, label='Target High')
+        
+        # Add labels
+        ax.annotate(f'${current:.2f}\n(Current)', (current, y_pos + 0.25), 
+                    ha='center', va='bottom', color='#d4af37', fontsize=11, fontweight='bold')
+        ax.annotate(f'${target_low:.2f}', (target_low, y_pos - 0.25), 
+                    ha='center', va='top', color='#ff4757', fontsize=10)
+        ax.annotate(f'${target_mean:.2f}', (target_mean, y_pos - 0.25), 
+                    ha='center', va='top', color='#00c896', fontsize=10, fontweight='bold')
+        ax.annotate(f'${target_high:.2f}', (target_high, y_pos - 0.25), 
+                    ha='center', va='top', color='#6366f1', fontsize=10)
+        
+        # Upside annotation
+        upside = pt.get("upside_pct", 0)
+        upside_color = '#00c896' if upside > 0 else '#ff4757'
+        ax.annotate(f'Upside: {upside:+.1f}%', (target_mean, y_pos + 0.4), 
+                    ha='center', va='bottom', color=upside_color, fontsize=14, fontweight='bold')
+        
+        # Styling
+        ax.set_xlim(min(target_low, current) * 0.9, max(target_high, current) * 1.1)
+        ax.set_ylim(0, 1)
+        ax.set_yticks([])
+        ax.set_xlabel('Price ($)', color='#a0a0a8', fontsize=12)
+        ax.tick_params(colors='#a0a0a8')
+        ax.spines['bottom'].set_color('#333')
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.spines['left'].set_visible(False)
+        
+        ax.set_title(f'{ticker} - Analyst Price Targets', 
+                     fontsize=16, color='white', fontweight='bold', pad=20)
+        
+        ax.legend(loc='upper right', facecolor='#1a1a24', edgecolor='#333', 
+                  labelcolor='white', fontsize=9)
+        
+        plt.tight_layout()
+        
+        if save_path:
+            plt.savefig(save_path, facecolor='#0d0d12', edgecolor='none', 
+                        bbox_inches='tight', dpi=150)
+        plt.close()
+        
+        return f"Analyst estimates chart saved to <img {save_path}>"
 
 
 if __name__ == "__main__":

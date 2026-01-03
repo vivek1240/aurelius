@@ -12,11 +12,12 @@ from typing import Dict, Any, Optional
 
 # Import all utilities
 from ..data_source import YFinanceUtils, FinnHubUtils, FMPUtils
-from .charting import MplFinanceUtils, ReportChartUtils, ComparisonCharts
+from .charting import MplFinanceUtils, ReportChartUtils, ComparisonCharts, EarningsCharts
 from .quantitative import BackTraderUtils
 from .analyzer import ReportAnalysisUtils
 from .strategies import STRATEGY_REGISTRY, STRATEGY_INFO
 from .comparison import StockComparator
+from .earnings import EarningsIntel
 
 
 # ============================================================================
@@ -284,6 +285,33 @@ TOOL_DEFINITIONS = [
                 "required": ["tickers"]
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_earnings_intel",
+            "description": "Get comprehensive earnings intelligence including EPS history, revenue trends, analyst estimates, next earnings date, and beat/miss streaks. Great for understanding a company's earnings performance.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "ticker": {
+                        "type": "string",
+                        "description": "Stock ticker symbol (e.g., NVDA, AAPL)"
+                    },
+                    "include_chart": {
+                        "type": "boolean",
+                        "description": "Whether to generate an EPS surprise chart (default true)",
+                        "default": True
+                    },
+                    "quarters": {
+                        "type": "integer",
+                        "description": "Number of quarters of history (default 8)",
+                        "default": 8
+                    }
+                },
+                "required": ["ticker"]
+            }
+        }
     }
 ]
 
@@ -324,6 +352,8 @@ class ToolExecutor:
                 return ToolExecutor._get_basic_financials(**arguments)
             elif tool_name == "compare_stocks":
                 return ToolExecutor._compare_stocks(**arguments)
+            elif tool_name == "get_earnings_intel":
+                return ToolExecutor._get_earnings_intel(**arguments)
             else:
                 return {"error": f"Unknown tool: {tool_name}"}
         except Exception as e:
@@ -657,6 +687,55 @@ class ToolExecutor:
                     tmp_path = tmp.name
                 
                 ComparisonCharts.performance_comparison_chart(tickers, period_days, tmp_path)
+                
+                with open(tmp_path, 'rb') as f:
+                    img_data = base64.b64encode(f.read()).decode()
+                
+                os.unlink(tmp_path)
+                
+                result["image_base64"] = img_data
+                result["has_image"] = True
+            
+            return result
+            
+        except Exception as e:
+            return {"error": str(e)}
+    
+    @staticmethod
+    def _get_earnings_intel(ticker: str, include_chart: bool = True, quarters: int = 8) -> Dict[str, Any]:
+        """Get comprehensive earnings intelligence"""
+        try:
+            # Get all earnings data
+            earnings_history = EarningsIntel.get_earnings_history(ticker, quarters)
+            revenue_history = EarningsIntel.get_revenue_history(ticker, quarters)
+            next_earnings = EarningsIntel.get_next_earnings(ticker)
+            analyst_estimates = EarningsIntel.get_analyst_estimates(ticker)
+            streak_analysis = EarningsIntel.get_earnings_surprise_streak(ticker)
+            
+            # Build summary
+            summary = earnings_history.get("summary", {})
+            
+            result = {
+                "ticker": ticker,
+                "summary": {
+                    "beat_rate": summary.get("beat_rate", "N/A"),
+                    "consecutive_beats": summary.get("consecutive_beats", 0),
+                    "avg_surprise_pct": summary.get("avg_surprise_pct", 0),
+                    "total_quarters_analyzed": summary.get("total_quarters", 0)
+                },
+                "next_earnings": next_earnings,
+                "analyst_price_targets": analyst_estimates.get("price_targets", {}),
+                "earnings_history": earnings_history.get("quarters", [])[:4],  # Last 4 quarters
+                "revenue_trend": revenue_history.get("summary", {}),
+                "streak_analysis": streak_analysis,
+            }
+            
+            # Generate chart if requested
+            if include_chart:
+                with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
+                    tmp_path = tmp.name
+                
+                EarningsCharts.eps_surprise_chart(ticker, quarters, tmp_path)
                 
                 with open(tmp_path, 'rb') as f:
                     img_data = base64.b64encode(f.read()).decode()

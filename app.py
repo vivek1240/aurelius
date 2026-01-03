@@ -444,7 +444,7 @@ with st.sidebar:
     st.markdown("<p style='color: #a0a0a8; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.75rem; font-weight: 600;'>Navigation</p>", unsafe_allow_html=True)
     page = st.radio(
         "Navigation",
-        ["🤖 AI Command Center", "🎛️ Command Deck", "🔬 Deep Scan", "🏛️ The Vault", "📊 Comparator", "📡 Signal Wire", "🔮 The Oracle", "⚔️ Backtest Arena", "📑 Report Forge", "📱 Social Pulse", "📚 Research Library"],
+        ["🤖 AI Command Center", "🎛️ Command Deck", "🔬 Deep Scan", "🏛️ The Vault", "📈 Earnings Intel", "📊 Comparator", "📡 Signal Wire", "🔮 The Oracle", "⚔️ Backtest Arena", "📑 Report Forge", "📱 Social Pulse", "📚 Research Library"],
         label_visibility="collapsed"
     )
     
@@ -506,6 +506,7 @@ if page == "🤖 AI Command Center":
         | ⚔️ **Backtest** | Test strategies: SMA, RSI, MACD, Bollinger Bands | *"Backtest RSI on MSFT"* |
         | 🏢 **Company Info** | Company profile, news, key metrics | *"Tell me about Apple"* |
         | 🆚 **Compare Stocks** | Compare multiple stocks side-by-side on financials, valuations & performance | *"Compare NVDA, AMD, INTC"* |
+        | 📈 **Earnings Intel** | EPS history, beat rates, analyst estimates, next earnings | *"Show earnings for NVDA"* |
         """)
     
     st.divider()
@@ -526,7 +527,7 @@ if page == "🤖 AI Command Center":
     # Suggested prompts (only show if no messages yet)
     if not st.session_state.command_center_messages:
         st.markdown("**Try asking:**")
-        col1, col2, col3, col4, col5 = st.columns(5)
+        col1, col2, col3 = st.columns(3)
         
         with col1:
             if st.button("📈 Analyze NVDA", use_container_width=True):
@@ -540,6 +541,8 @@ if page == "🤖 AI Command Center":
             if st.button("🆚 Compare Chips", use_container_width=True):
                 st.session_state.pending_prompt = "Compare NVDA, AMD, and INTC on financials, valuations, and performance"
                 st.rerun()
+        
+        col4, col5, col6 = st.columns(3)
         with col4:
             if st.button("⚔️ Backtest TSLA", use_container_width=True):
                 st.session_state.pending_prompt = "Run RSI backtest on TSLA with $10,000"
@@ -547,6 +550,10 @@ if page == "🤖 AI Command Center":
         with col5:
             if st.button("💰 MSFT Financials", use_container_width=True):
                 st.session_state.pending_prompt = "Show me Microsoft's income statement and key financials"
+                st.rerun()
+        with col6:
+            if st.button("📈 NVDA Earnings", use_container_width=True):
+                st.session_state.pending_prompt = "Show me NVDA earnings history, beat rate, and analyst estimates"
                 st.rerun()
     
     # User input
@@ -1107,7 +1114,7 @@ elif page == "🔬 Deep Scan":
                                     name=f'MA{ma_period}',
                                     line=dict(color=ma_colors[i % len(ma_colors)], width=1.5)
                                 ))
-                            
+                        
                             fig.update_layout(
                                 template="plotly_dark",
                                 paper_bgcolor='rgba(0,0,0,0)',
@@ -1341,6 +1348,221 @@ elif page == "🏛️ The Vault":
                         
             except Exception as e:
                 st.error(f"Error fetching financials: {str(e)}")
+
+elif page == "📈 Earnings Intel":
+    # Import earnings utilities
+    from aurelius.functional.earnings import EarningsIntel
+    from aurelius.functional.charting import EarningsCharts
+    
+    st.title("📈 Earnings Intelligence")
+    st.caption("Track earnings history, analyst estimates, beat/miss streaks, and upcoming earnings dates.")
+    
+    st.divider()
+    
+    # Input section
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        earnings_ticker = st.text_input("Stock Ticker", value="NVDA", placeholder="Enter ticker symbol").upper().strip()
+    with col2:
+        earnings_quarters = st.selectbox("Quarters History", [4, 6, 8, 12], index=2)
+    
+    if st.button("🔍 Analyze Earnings", use_container_width=True, type="primary"):
+        if earnings_ticker:
+            with st.spinner(f"Fetching earnings intelligence for {earnings_ticker}..."):
+                try:
+                    # Get all earnings data
+                    earnings_history = EarningsIntel.get_earnings_history(earnings_ticker, earnings_quarters)
+                    next_earnings = EarningsIntel.get_next_earnings(earnings_ticker)
+                    analyst_data = EarningsIntel.get_analyst_estimates(earnings_ticker)
+                    streak = EarningsIntel.get_earnings_surprise_streak(earnings_ticker)
+                    revenue_data = EarningsIntel.get_revenue_history(earnings_ticker, earnings_quarters)
+                    
+                    # Quick Stats Row
+                    st.markdown("### ⚡ Key Metrics")
+                    summary = earnings_history.get("summary", {})
+                    
+                    m1, m2, m3, m4 = st.columns(4)
+                    with m1:
+                        beat_rate = summary.get("beat_rate", "N/A")
+                        st.metric("Beat Rate", f"{beat_rate}%" if beat_rate != "N/A" else "N/A")
+                    with m2:
+                        streak_count = streak.get("current_streak", 0)
+                        streak_type = streak.get("streak_type", "")
+                        streak_emoji = "🔥" if streak_type == "beat" else "❄️" if streak_type == "miss" else ""
+                        st.metric("Current Streak", f"{streak_emoji} {streak_count} {streak_type}s" if streak_count else "N/A")
+                    with m3:
+                        avg_surprise = summary.get("avg_surprise_pct", 0)
+                        st.metric("Avg Surprise", f"{avg_surprise:+.2f}%" if avg_surprise else "N/A")
+                    with m4:
+                        days_until = next_earnings.get("days_until")
+                        if days_until is not None:
+                            st.metric("Next Earnings", f"In {days_until} days")
+                        else:
+                            st.metric("Next Earnings", "TBD")
+                    
+                    st.divider()
+                    
+                    # Tabs for different views
+                    tab1, tab2, tab3, tab4 = st.tabs(["📊 EPS Analysis", "💰 Revenue Trends", "🎯 Analyst Targets", "📅 Next Earnings"])
+                    
+                    with tab1:
+                        st.markdown("### EPS: Actual vs Estimate")
+                        
+                        # Generate EPS chart
+                        import tempfile
+                        with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
+                            EarningsCharts.eps_surprise_chart(earnings_ticker, earnings_quarters, tmp.name)
+                            st.image(tmp.name, use_container_width=True)
+                        
+                        # Earnings history table
+                        if earnings_history.get("quarters"):
+                            st.markdown("### 📋 Earnings History")
+                            history_data = []
+                            for q in earnings_history["quarters"]:
+                                history_data.append({
+                                    "Quarter": q["date"],
+                                    "EPS Est": f"${q['eps_estimate']:.2f}" if q['eps_estimate'] else "N/A",
+                                    "EPS Actual": f"${q['eps_actual']:.2f}" if q['eps_actual'] else "N/A",
+                                    "Surprise": f"{q['surprise_pct']:+.1f}%" if q['surprise_pct'] else "N/A",
+                                    "Result": "✅ Beat" if q.get('surprise_pct', 0) > 0 else "❌ Miss" if q.get('surprise_pct', 0) < 0 else "➖ Met"
+                                })
+                            st.dataframe(history_data, use_container_width=True, hide_index=True)
+                    
+                    with tab2:
+                        st.markdown("### Revenue Trends")
+                        
+                        # Generate revenue chart
+                        import tempfile
+                        with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
+                            EarningsCharts.revenue_trend_chart(earnings_ticker, earnings_quarters, tmp.name)
+                            st.image(tmp.name, use_container_width=True)
+                        
+                        # Revenue summary
+                        rev_summary = revenue_data.get("summary", {})
+                        if rev_summary:
+                            c1, c2, c3 = st.columns(3)
+                            with c1:
+                                latest = rev_summary.get("latest_revenue")
+                                if latest:
+                                    st.metric("Latest Quarterly Revenue", f"${latest/1e9:.2f}B")
+                            with c2:
+                                avg_growth = rev_summary.get("avg_yoy_growth")
+                                if avg_growth is not None:
+                                    st.metric("Avg YoY Growth", f"{avg_growth:+.1f}%")
+                            with c3:
+                                trend = rev_summary.get("revenue_trend", "unknown")
+                                trend_emoji = "📈" if trend == "growing" else "📉"
+                                st.metric("Trend", f"{trend_emoji} {trend.title()}")
+                    
+                    with tab3:
+                        st.markdown("### Analyst Price Targets")
+                        
+                        pt = analyst_data.get("price_targets", {})
+                        if pt.get("current_price"):
+                            # Generate analyst chart
+                            import tempfile
+                            with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
+                                EarningsCharts.analyst_estimates_chart(earnings_ticker, tmp.name)
+                                st.image(tmp.name, use_container_width=True)
+                            
+                            # Price target metrics
+                            c1, c2, c3, c4 = st.columns(4)
+                            with c1:
+                                st.metric("Current Price", f"${pt.get('current_price', 0):.2f}")
+                            with c2:
+                                st.metric("Target Low", f"${pt.get('target_low', 0):.2f}")
+                            with c3:
+                                st.metric("Target Mean", f"${pt.get('target_mean', 0):.2f}")
+                            with c4:
+                                st.metric("Target High", f"${pt.get('target_high', 0):.2f}")
+                            
+                            upside = pt.get("upside_pct", 0)
+                            if upside:
+                                upside_color = "green" if upside > 0 else "red"
+                                st.markdown(f"**Upside/Downside:** <span style='color: {upside_color}; font-size: 1.2em;'>{upside:+.1f}%</span>", unsafe_allow_html=True)
+                        else:
+                            st.info("Analyst price target data not available for this stock.")
+                        
+                        # EPS Estimates
+                        eps_est = analyst_data.get("eps_estimates", {})
+                        if eps_est:
+                            st.markdown("### 📊 EPS Estimates by Period")
+                            eps_rows = []
+                            for period, data in eps_est.items():
+                                eps_rows.append({
+                                    "Period": period,
+                                    "Low": f"${data.get('low', 0):.2f}" if data.get('low') else "N/A",
+                                    "Avg": f"${data.get('avg', 0):.2f}" if data.get('avg') else "N/A",
+                                    "High": f"${data.get('high', 0):.2f}" if data.get('high') else "N/A",
+                                    "Analysts": data.get('num_analysts', 'N/A')
+                                })
+                            if eps_rows:
+                                st.dataframe(eps_rows, use_container_width=True, hide_index=True)
+                    
+                    with tab4:
+                        st.markdown("### 📅 Upcoming Earnings")
+                        
+                        if next_earnings.get("next_earnings_date"):
+                            st.success(f"**Next Earnings Date:** {next_earnings['next_earnings_date']}")
+                            
+                            if next_earnings.get("days_until") is not None:
+                                days = next_earnings["days_until"]
+                                if days == 0:
+                                    st.warning("⚠️ **Earnings are TODAY!**")
+                                elif days <= 7:
+                                    st.warning(f"⏰ **Earnings in {days} days** - Consider positioning before announcement")
+                                else:
+                                    st.info(f"📆 {days} days until next earnings report")
+                            
+                            # Estimates for upcoming
+                            c1, c2 = st.columns(2)
+                            with c1:
+                                if next_earnings.get("eps_estimate"):
+                                    st.metric("Expected EPS", f"${next_earnings['eps_estimate']:.2f}")
+                            with c2:
+                                if next_earnings.get("revenue_estimate"):
+                                    st.metric("Expected Revenue", f"${next_earnings['revenue_estimate']/1e9:.2f}B")
+                            
+                            # Historical context
+                            st.markdown("### 📈 Historical Context")
+                            best = streak.get("best_surprise", {})
+                            worst = streak.get("worst_surprise", {})
+                            
+                            c1, c2 = st.columns(2)
+                            with c1:
+                                if best:
+                                    st.markdown(f"**Best Surprise:** {best.get('value', 0):+.1f}% ({best.get('date', 'N/A')})")
+                            with c2:
+                                if worst:
+                                    st.markdown(f"**Worst Surprise:** {worst.get('value', 0):+.1f}% ({worst.get('date', 'N/A')})")
+                        else:
+                            st.info("Next earnings date not yet announced. Check back closer to earnings season.")
+                    
+                except Exception as e:
+                    st.error(f"Error fetching earnings data: {str(e)}")
+        else:
+            st.warning("Please enter a ticker symbol.")
+    
+    # Tips section
+    with st.expander("💡 Earnings Analysis Tips"):
+        st.markdown("""
+        **Understanding Earnings Metrics:**
+        
+        - **Beat Rate**: Percentage of quarters where actual EPS exceeded estimates
+        - **Surprise %**: How much actual EPS deviated from analyst expectations
+        - **Consecutive Beats**: Strong indicator of company execution and conservative guidance
+        
+        **Key Insights to Watch:**
+        - Companies with high beat rates (>75%) tend to have conservative guidance
+        - Large positive surprises can lead to price momentum
+        - Revenue growth trends indicate business health
+        - Analyst target spread shows consensus confidence
+        
+        **Trading Around Earnings:**
+        - Stocks often move significantly on earnings day
+        - Consider IV (implied volatility) before options trades
+        - Historical surprise patterns can hint at guidance style
+        """)
 
 elif page == "📊 Comparator":
     st.title("📊 Stock Comparator")
