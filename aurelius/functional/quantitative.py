@@ -1,6 +1,7 @@
 import os
 import json
 import importlib
+import pandas as pd
 import yfinance as yf
 import backtrader as bt
 from backtrader.strategies import SMA_CrossOver
@@ -97,9 +98,12 @@ class BackTraderUtils:
         cerebro.addstrategy(strategy_class, **strategy_params)
 
         # Create a data feed
-        data = bt.feeds.PandasData(
-            dataname=yf.download(ticker_symbol, start_date, end_date, auto_adjust=True)
-        )
+        # Download data and handle multi-index columns from newer yfinance
+        df = yf.download(ticker_symbol, start_date, end_date, auto_adjust=True)
+        # Flatten multi-index columns if present
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = df.columns.get_level_values(0)
+        data = bt.feeds.PandasData(dataname=df)
         cerebro.adddata(data)  # Add the data feed
         # Set our desired cash start
         cerebro.broker.setcash(cash)

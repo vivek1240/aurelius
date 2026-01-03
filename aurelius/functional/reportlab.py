@@ -208,18 +208,23 @@ class ReportLabUtils:
             content.append(Paragraph("Operating Results", subtitle_style))
             content.append(Paragraph(operating_results, custom_style))
 
-            # content.append(Paragraph("Summarization", subtitle_style))
-            df = FMPUtils.get_financial_metrics(ticker_symbol, years=5)
-            df.reset_index(inplace=True)
-            currency = YFinanceUtils.get_stock_info(ticker_symbol)["currency"]
-            df.rename(columns={"index": f"FY ({currency} mn)"}, inplace=True)
-            table_data = [["Financial Metrics"]]
-            table_data += [df.columns.to_list()] + df.values.tolist()
+            # Financial Metrics table (optional - requires FMP paid tier)
+            try:
+                df = FMPUtils.get_financial_metrics(ticker_symbol, years=5)
+                if df is not None and not df.empty:
+                    df.reset_index(inplace=True)
+                    currency = YFinanceUtils.get_stock_info(ticker_symbol).get("currency", "USD")
+                    df.rename(columns={"index": f"FY ({currency} mn)"}, inplace=True)
+                    table_data = [["Financial Metrics"]]
+                    table_data += [df.columns.to_list()] + df.values.tolist()
 
-            col_widths = [(left_column_width - margin * 4) / df.shape[1]] * df.shape[1]
-            table = Table(table_data, colWidths=col_widths)
-            table.setStyle(table_style2)
-            content.append(table)
+                    col_widths = [(left_column_width - margin * 4) / df.shape[1]] * df.shape[1]
+                    table = Table(table_data, colWidths=col_widths)
+                    table.setStyle(table_style2)
+                    content.append(table)
+            except Exception:
+                # FMP metrics unavailable, skip this section
+                pass
 
             content.append(FrameBreak())  # 用于从左栏跳到右栏
 
@@ -253,14 +258,29 @@ class ReportLabUtils:
 
             # content.append(Paragraph("", custom_style))
             content.append(Spacer(1, 0.15 * inch))
-            key_data = ReportAnalysisUtils.get_key_data(ticker_symbol, filing_date)
-            # 表格数据
-            data = [["Key data", ""]]
-            data += [[k, v] for k, v in key_data.items()]
-            col_widths = [full_length // 3 * 2, full_length // 3]
-            table = Table(data, colWidths=col_widths)
-            table.setStyle(table_style)
-            content.append(table)
+            
+            # Key data section (optional - some data requires FMP paid tier)
+            try:
+                key_data = ReportAnalysisUtils.get_key_data(ticker_symbol, filing_date)
+                if key_data:
+                    # 表格数据
+                    data = [["Key data", ""]]
+                    data += [[k, v] for k, v in key_data.items()]
+                    col_widths = [full_length // 3 * 2, full_length // 3]
+                    table = Table(data, colWidths=col_widths)
+                    table.setStyle(table_style)
+                    content.append(table)
+            except Exception:
+                # Key data unavailable, add basic info instead
+                info = YFinanceUtils.get_stock_info(ticker_symbol)
+                data = [["Key data", ""]]
+                data.append(["Company", info.get("shortName", ticker_symbol)])
+                data.append(["Sector", info.get("sector", "N/A")])
+                data.append(["Industry", info.get("industry", "N/A")])
+                col_widths = [full_length // 3 * 2, full_length // 3]
+                table = Table(data, colWidths=col_widths)
+                table.setStyle(table_style)
+                content.append(table)
 
             # 将Matplotlib图像添加到右栏
 
