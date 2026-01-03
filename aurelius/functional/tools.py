@@ -19,6 +19,8 @@ from .strategies import STRATEGY_REGISTRY, STRATEGY_INFO
 from .comparison import StockComparator
 from .earnings import EarningsIntel
 from .storage import WatchlistManager, ResearchManager, AlertManager
+from .ownership import OwnershipIntel
+from .charting import OwnershipCharts
 
 
 # ============================================================================
@@ -347,6 +349,39 @@ TOOL_DEFINITIONS = [
                 "required": ["action"]
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_ownership_intel",
+            "description": "Get comprehensive ownership analysis including institutional holders, insider trading activity, mutual fund holdings, and ownership breakdown. Great for understanding who owns a stock and insider sentiment.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "ticker": {
+                        "type": "string",
+                        "description": "Stock ticker symbol (e.g., NVDA, AAPL)"
+                    },
+                    "include_chart": {
+                        "type": "boolean",
+                        "description": "Whether to generate an ownership breakdown chart (default true)",
+                        "default": True
+                    },
+                    "chart_type": {
+                        "type": "string",
+                        "enum": ["pie", "holders", "insider", "comparison"],
+                        "description": "Type of chart: 'pie' for ownership breakdown, 'holders' for top institutional holders, 'insider' for insider activity, 'comparison' for multiple stocks",
+                        "default": "pie"
+                    },
+                    "compare_with": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Other tickers to compare ownership with (for 'comparison' chart type)"
+                    }
+                },
+                "required": ["ticker"]
+            }
+        }
     }
 ]
 
@@ -391,6 +426,8 @@ class ToolExecutor:
                 return ToolExecutor._get_earnings_intel(**arguments)
             elif tool_name == "manage_watchlist":
                 return ToolExecutor._manage_watchlist(**arguments)
+            elif tool_name == "get_ownership_intel":
+                return ToolExecutor._get_ownership_intel(**arguments)
             else:
                 return {"error": f"Unknown tool: {tool_name}"}
         except Exception as e:
@@ -928,6 +965,97 @@ class ToolExecutor:
             else:
                 return {"error": f"Unknown action: {action}. Use 'add', 'remove', 'list', 'save_note', or 'get_notes'"}
         
+        except Exception as e:
+            return {"error": str(e)}
+
+
+    @staticmethod
+    def _get_ownership_intel(
+        ticker: str,
+        include_chart: bool = True,
+        chart_type: str = "pie",
+        compare_with: list = None
+    ) -> Dict[str, Any]:
+        """Get comprehensive ownership intelligence"""
+        try:
+            # Get ownership breakdown
+            breakdown = OwnershipIntel.get_ownership_breakdown(ticker)
+            
+            # Get insider summary
+            insider_summary = OwnershipIntel.get_insider_summary(ticker)
+            
+            # Get top holders
+            institutional_holders = OwnershipIntel.get_institutional_holders(ticker, top_n=5)
+            mutual_fund_holders = OwnershipIntel.get_mutual_fund_holders(ticker, top_n=5)
+            
+            # Format institutional holders
+            inst_holders_list = []
+            if not institutional_holders.empty and 'error' not in institutional_holders.columns:
+                for _, row in institutional_holders.iterrows():
+                    holder_info = {
+                        "holder": row.get("Holder", "N/A"),
+                        "value_billions": round(row.get("Value (B)", 0), 2) if row.get("Value (B)") else None,
+                        "change_pct": round(row.get("Change %", 0), 2) if row.get("Change %") else None
+                    }
+                    inst_holders_list.append(holder_info)
+            
+            # Format mutual fund holders
+            mf_holders_list = []
+            if not mutual_fund_holders.empty and 'error' not in mutual_fund_holders.columns:
+                for _, row in mutual_fund_holders.iterrows():
+                    holder_info = {
+                        "holder": row.get("Holder", "N/A"),
+                        "value_billions": round(row.get("Value (B)", 0), 2) if row.get("Value (B)") else None,
+                        "change_pct": round(row.get("Change %", 0), 2) if row.get("Change %") else None
+                    }
+                    mf_holders_list.append(holder_info)
+            
+            result = {
+                "ticker": ticker,
+                "ownership_breakdown": {
+                    "insiders_percent": round(breakdown.get("insiders_percent", 0), 2),
+                    "institutions_percent": round(breakdown.get("institutions_percent", 0), 2),
+                    "public_percent": round(breakdown.get("public_percent", 0), 2),
+                    "institutions_count": breakdown.get("institutions_count", 0)
+                },
+                "insider_activity": {
+                    "purchases_shares": insider_summary.get("purchases_shares", 0),
+                    "sales_shares": insider_summary.get("sales_shares", 0),
+                    "net_shares": insider_summary.get("net_shares", 0),
+                    "sentiment": insider_summary.get("sentiment", "N/A"),
+                    "period": insider_summary.get("period", "Last 6 Months")
+                },
+                "top_institutional_holders": inst_holders_list,
+                "top_mutual_fund_holders": mf_holders_list
+            }
+            
+            # Generate chart if requested
+            if include_chart:
+                with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
+                    tmp_path = tmp.name
+                
+                if chart_type == "pie":
+                    OwnershipCharts.ownership_pie_chart(ticker, tmp_path)
+                elif chart_type == "holders":
+                    OwnershipCharts.top_holders_chart(ticker, "institutional", 10, tmp_path)
+                elif chart_type == "insider":
+                    OwnershipCharts.insider_activity_chart(ticker, tmp_path)
+                elif chart_type == "comparison" and compare_with:
+                    all_tickers = [ticker] + compare_with
+                    OwnershipCharts.ownership_comparison_chart(all_tickers, tmp_path)
+                else:
+                    OwnershipCharts.ownership_pie_chart(ticker, tmp_path)
+                
+                with open(tmp_path, 'rb') as f:
+                    img_data = base64.b64encode(f.read()).decode()
+                
+                os.unlink(tmp_path)
+                
+                result["image_base64"] = img_data
+                result["has_image"] = True
+            
+            return result
+            
         except Exception as e:
             return {"error": str(e)}
 

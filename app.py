@@ -444,7 +444,7 @@ with st.sidebar:
     st.markdown("<p style='color: #a0a0a8; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.75rem; font-weight: 600;'>Navigation</p>", unsafe_allow_html=True)
     page = st.radio(
         "Navigation",
-        ["🤖 AI Command Center", "🎛️ Command Deck", "🔬 Deep Scan", "🏛️ The Vault", "📈 Earnings Intel", "📊 Comparator", "📌 Watchlist", "📡 Signal Wire", "🔮 The Oracle", "⚔️ Backtest Arena", "📑 Report Forge", "📱 Social Pulse", "📚 Research Library"],
+        ["🤖 AI Command Center", "🎛️ Command Deck", "🔬 Deep Scan", "🏛️ The Vault", "📈 Earnings Intel", "📊 Comparator", "📌 Watchlist", "🏦 Ownership", "📡 Signal Wire", "🔮 The Oracle", "⚔️ Backtest Arena", "📑 Report Forge", "📱 Social Pulse", "📚 Research Library"],
         label_visibility="collapsed"
     )
     
@@ -507,6 +507,7 @@ if page == "🤖 AI Command Center":
         | 🏢 **Company Info** | Company profile, news, key metrics | *"Tell me about Apple"* |
         | 🆚 **Compare Stocks** | Compare multiple stocks side-by-side on financials, valuations & performance | *"Compare NVDA, AMD, INTC"* |
         | 📈 **Earnings Intel** | EPS history, beat rates, analyst estimates, next earnings | *"Show earnings for NVDA"* |
+        | 🏦 **Ownership Intel** | Institutional holders, insider activity, ownership breakdown | *"Who owns NVDA?"* |
         | 📌 **Watchlist** | Add/remove stocks, view watchlist, save research notes | *"Add NVDA to watchlist"* |
         """)
     
@@ -556,6 +557,22 @@ if page == "🤖 AI Command Center":
             if st.button("📈 NVDA Earnings", use_container_width=True):
                 st.session_state.pending_prompt = "Show me NVDA earnings history, beat rate, and analyst estimates"
                 st.rerun()
+    
+    # Additional quick actions row for new features
+    st.markdown("**More Actions:**")
+    col7, col8, col9 = st.columns(3)
+    with col7:
+        if st.button("🏦 AAPL Ownership", use_container_width=True):
+            st.session_state.pending_prompt = "Who are the biggest owners of AAPL? Show me the ownership breakdown."
+            st.rerun()
+    with col8:
+        if st.button("👥 NVDA Insiders", use_container_width=True):
+            st.session_state.pending_prompt = "Show me insider trading activity for NVDA. Are insiders buying or selling?"
+            st.rerun()
+    with col9:
+        if st.button("📋 My Watchlist", use_container_width=True):
+            st.session_state.pending_prompt = "Show me my watchlist"
+            st.rerun()
     
     # User input
     user_input = st.chat_input("Ask anything about stocks, charts, backtests, or analysis...")
@@ -1063,15 +1080,15 @@ elif page == "🔬 Deep Scan":
                         else:
                             # Use Plotly for standard chart types
                             fig = go.Figure()
-                        
+                            
                             # Dynamic chart type
                             if chart_type == "Candlestick":
                                 fig.add_trace(go.Candlestick(
-                            x=stock_data.index,
-                            open=stock_data['Open'],
-                            high=stock_data['High'],
-                            low=stock_data['Low'],
-                            close=stock_data['Close'],
+                                    x=stock_data.index,
+                                    open=stock_data['Open'],
+                                    high=stock_data['High'],
+                                    low=stock_data['Low'],
+                                    close=stock_data['Close'],
                                     name='Price',
                                     increasing_line_color='#00c896',
                                     decreasing_line_color='#ff4757'
@@ -1089,7 +1106,7 @@ elif page == "🔬 Deep Scan":
                                 ))
                             elif chart_type == "Line":
                                 fig.add_trace(go.Scatter(
-                            x=stock_data.index,
+                                    x=stock_data.index,
                                     y=stock_data['Close'],
                                     name='Close Price',
                                     line=dict(color='#d4af37', width=2)
@@ -1110,12 +1127,12 @@ elif page == "🔬 Deep Scan":
                                 ma_col = f'MA{ma_period}'
                                 stock_data[ma_col] = stock_data['Close'].rolling(window=ma_period).mean()
                                 fig.add_trace(go.Scatter(
-                            x=stock_data.index,
+                                    x=stock_data.index,
                                     y=stock_data[ma_col],
                                     name=f'MA{ma_period}',
                                     line=dict(color=ma_colors[i % len(ma_colors)], width=1.5)
-                        ))
-                        
+                                ))
+                            
                             fig.update_layout(
                                 template="plotly_dark",
                                 paper_bgcolor='rgba(0,0,0,0)',
@@ -1123,10 +1140,10 @@ elif page == "🔬 Deep Scan":
                                 font=dict(family="DM Sans", color="#a0a0a8"),
                                 xaxis=dict(gridcolor='rgba(255,255,255,0.03)', rangeslider=dict(visible=False)),
                                 yaxis=dict(gridcolor='rgba(255,255,255,0.03)', title="Price ($)"),
-                            height=500,
+                                height=500,
                                 legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
-                        )
-                        
+                            )
+                            
                             st.plotly_chart(fig, use_container_width=True)
                     
                     with tab2:
@@ -1963,6 +1980,260 @@ elif page == "📌 Watchlist":
         - Say "Add NVDA to watchlist" in the AI Command Center
         - Ask "Show my watchlist" to see your tracked stocks
         - Request "Save a note for AAPL" to document research
+        """)
+
+elif page == "🏦 Ownership":
+    from aurelius.functional.ownership import OwnershipIntel
+    from aurelius.functional.charting import OwnershipCharts
+    import tempfile
+    import base64
+    
+    st.title("🏦 Ownership Analysis")
+    st.caption("Institutional ownership, insider trading activity, and shareholder breakdown.")
+    
+    st.divider()
+    
+    # Ownership tabs
+    own_tab1, own_tab2, own_tab3, own_tab4 = st.tabs([
+        "📊 Breakdown", "🏛️ Institutional Holders", "👥 Insider Activity", "🔄 Compare"
+    ])
+    
+    with own_tab1:
+        st.subheader("📊 Ownership Breakdown")
+        
+        col1, col2 = st.columns([2, 1])
+        
+        with col1:
+            # Get ownership breakdown
+            with st.spinner("Loading ownership data..."):
+                breakdown = OwnershipIntel.get_ownership_breakdown(ticker)
+            
+            if 'error' not in breakdown:
+                # Display key metrics
+                met_col1, met_col2, met_col3, met_col4 = st.columns(4)
+                
+                with met_col1:
+                    st.metric(
+                        "Institutional",
+                        f"{breakdown.get('institutions_percent', 0):.1f}%",
+                        help="Percentage held by institutions"
+                    )
+                
+                with met_col2:
+                    st.metric(
+                        "Insiders",
+                        f"{breakdown.get('insiders_percent', 0):.1f}%",
+                        help="Percentage held by company insiders"
+                    )
+                
+                with met_col3:
+                    st.metric(
+                        "Public/Other",
+                        f"{breakdown.get('public_percent', 0):.1f}%",
+                        help="Percentage held by public and other"
+                    )
+                
+                with met_col4:
+                    st.metric(
+                        "# Institutions",
+                        f"{breakdown.get('institutions_count', 0):,}",
+                        help="Number of institutional holders"
+                    )
+                
+                st.divider()
+                
+                # Display pie chart
+                with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
+                    tmp_path = tmp.name
+                    OwnershipCharts.ownership_pie_chart(ticker, tmp_path)
+                    
+                    with open(tmp_path, 'rb') as f:
+                        img_data = f.read()
+                    st.image(img_data, use_container_width=True)
+                    import os
+                    os.unlink(tmp_path)
+            else:
+                st.error(f"Could not load ownership data: {breakdown.get('error', 'Unknown error')}")
+        
+        with col2:
+            st.markdown("""
+            <div style="background: rgba(212, 175, 55, 0.05); border: 1px solid rgba(212, 175, 55, 0.2); 
+                        border-radius: 12px; padding: 1rem;">
+                <h4 style="color: #d4af37; margin: 0 0 0.5rem 0;">Understanding Ownership</h4>
+                <p style="color: #a0a0a8; font-size: 0.85rem; margin: 0;">
+                    <strong style="color: #fff;">Institutional:</strong> Mutual funds, pension funds, hedge funds, banks, insurance companies.<br><br>
+                    <strong style="color: #fff;">Insiders:</strong> Directors, officers, and employees with direct access to company information.<br><br>
+                    <strong style="color: #fff;">Public:</strong> Individual investors and others not classified as institutional or insider.
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
+    
+    with own_tab2:
+        st.subheader("🏛️ Institutional Holders")
+        
+        holder_col1, holder_col2 = st.columns([3, 1])
+        
+        with holder_col1:
+            holder_type = st.selectbox(
+                "Holder Type",
+                ["Institutional Holders", "Mutual Fund Holders"],
+                help="Select type of holders to view"
+            )
+        
+        with holder_col2:
+            top_n = st.number_input("Top N", min_value=5, max_value=20, value=10)
+        
+        with st.spinner("Loading holder data..."):
+            if holder_type == "Institutional Holders":
+                holders_df = OwnershipIntel.get_institutional_holders(ticker, top_n)
+            else:
+                holders_df = OwnershipIntel.get_mutual_fund_holders(ticker, top_n)
+        
+        if not holders_df.empty and 'error' not in holders_df.columns:
+            # Clean up dataframe for display
+            display_cols = ['Holder', 'Shares', 'Value (B)', 'Change %', 'Date Reported']
+            available_cols = [c for c in display_cols if c in holders_df.columns]
+            
+            if available_cols:
+                st.dataframe(
+                    holders_df[available_cols],
+                    use_container_width=True,
+                    hide_index=True
+                )
+            
+            # Display chart
+            st.divider()
+            with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
+                tmp_path = tmp.name
+                holder_code = "institutional" if holder_type == "Institutional Holders" else "mutual_fund"
+                OwnershipCharts.top_holders_chart(ticker, holder_code, top_n, tmp_path)
+                
+                with open(tmp_path, 'rb') as f:
+                    img_data = f.read()
+                st.image(img_data, use_container_width=True)
+                import os
+                os.unlink(tmp_path)
+        else:
+            st.info(f"No {holder_type.lower()} data available for {ticker}")
+    
+    with own_tab3:
+        st.subheader("👥 Insider Activity")
+        
+        with st.spinner("Loading insider data..."):
+            insider_summary = OwnershipIntel.get_insider_summary(ticker)
+            insider_transactions = OwnershipIntel.get_insider_transactions(ticker, limit=15)
+        
+        if 'error' not in insider_summary:
+            # Display insider metrics
+            ins_col1, ins_col2, ins_col3, ins_col4 = st.columns(4)
+            
+            with ins_col1:
+                purchases = insider_summary.get('purchases_shares', 0)
+                st.metric(
+                    "Purchases",
+                    f"{purchases/1e6:.2f}M shares" if purchases else "N/A",
+                    help="Total shares purchased by insiders (last 6 months)"
+                )
+            
+            with ins_col2:
+                sales = insider_summary.get('sales_shares', 0)
+                st.metric(
+                    "Sales",
+                    f"{sales/1e6:.2f}M shares" if sales else "N/A",
+                    help="Total shares sold by insiders (last 6 months)"
+                )
+            
+            with ins_col3:
+                net = insider_summary.get('net_shares', 0)
+                delta_color = "normal" if net >= 0 else "inverse"
+                st.metric(
+                    "Net Activity",
+                    f"{abs(net)/1e6:.2f}M shares",
+                    delta=f"{'Buying' if net > 0 else 'Selling'}" if net != 0 else "Neutral",
+                    delta_color=delta_color if net != 0 else "off"
+                )
+            
+            with ins_col4:
+                sentiment = insider_summary.get('sentiment', 'N/A')
+                sentiment_icon = "🟢" if "Bullish" in sentiment else ("🔴" if "Bearish" in sentiment else "⚪")
+                st.metric(
+                    "Sentiment",
+                    f"{sentiment_icon}",
+                    delta=sentiment.replace("(", "").replace(")", ""),
+                    delta_color="off"
+                )
+            
+            st.divider()
+            
+            # Display insider activity chart
+            with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
+                tmp_path = tmp.name
+                OwnershipCharts.insider_activity_chart(ticker, tmp_path)
+                
+                with open(tmp_path, 'rb') as f:
+                    img_data = f.read()
+                st.image(img_data, use_container_width=True)
+                import os
+                os.unlink(tmp_path)
+            
+            # Recent transactions table
+            st.subheader("Recent Transactions")
+            if not insider_transactions.empty:
+                st.dataframe(insider_transactions, use_container_width=True, hide_index=True)
+            else:
+                st.info("No recent insider transactions found")
+        else:
+            st.error(f"Could not load insider data: {insider_summary.get('error', 'Unknown error')}")
+    
+    with own_tab4:
+        st.subheader("🔄 Ownership Comparison")
+        
+        compare_tickers = st.text_input(
+            "Compare with (comma-separated tickers)",
+            placeholder="e.g., AMD, INTC, QCOM",
+            help="Enter ticker symbols to compare ownership structures"
+        )
+        
+        if compare_tickers:
+            tickers_list = [t.strip().upper() for t in compare_tickers.split(",") if t.strip()]
+            all_tickers = [ticker] + tickers_list
+            
+            if len(all_tickers) > 1:
+                with st.spinner("Loading comparison data..."):
+                    comparison_df = OwnershipIntel.get_ownership_comparison(all_tickers)
+                
+                if not comparison_df.empty:
+                    st.dataframe(comparison_df, use_container_width=True, hide_index=True)
+                    
+                    st.divider()
+                    
+                    # Display comparison chart
+                    with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
+                        tmp_path = tmp.name
+                        OwnershipCharts.ownership_comparison_chart(all_tickers, tmp_path)
+                        
+                        with open(tmp_path, 'rb') as f:
+                            img_data = f.read()
+                        st.image(img_data, use_container_width=True)
+                        import os
+                        os.unlink(tmp_path)
+        else:
+            st.info("Enter ticker symbols above to compare ownership structures across companies.")
+    
+    # Tips expander
+    with st.expander("💡 Ownership Analysis Tips"):
+        st.markdown("""
+        **What to Look For:**
+        
+        1. **High Institutional Ownership (>70%):** Indicates strong professional confidence, but may reduce volatility
+        2. **Insider Buying:** Executives buying shares with their own money is often a positive signal
+        3. **Insider Selling:** Not always negative - executives often sell for diversification or personal needs
+        4. **Concentration Risk:** Very high ownership by few institutions can lead to volatility if they sell
+        
+        **AI Integration:**
+        - Ask "Show me the ownership breakdown for NVDA" in the AI Command Center
+        - Request "Who are the top institutional holders of AAPL?"
+        - Say "Compare ownership of NVDA, AMD, and INTC"
         """)
 
 elif page == "📡 Signal Wire":

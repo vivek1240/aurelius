@@ -805,6 +805,348 @@ class EarningsCharts:
         return f"Analyst estimates chart saved to <img {save_path}>"
 
 
+class OwnershipCharts:
+    """Charts for ownership analysis visualization"""
+    
+    @staticmethod
+    def ownership_pie_chart(
+        ticker: str,
+        save_path: str = None
+    ) -> str:
+        """
+        Create a pie chart showing ownership breakdown
+        
+        Args:
+            ticker: Stock ticker symbol
+            save_path: Path to save the chart
+        
+        Returns:
+            Path to saved chart
+        """
+        from .ownership import OwnershipIntel
+        
+        # Get ownership data
+        breakdown = OwnershipIntel.get_ownership_breakdown(ticker)
+        
+        if 'error' in breakdown:
+            return f"Error getting ownership data: {breakdown['error']}"
+        
+        # Setup data
+        labels = ['Institutions', 'Insiders', 'Public/Other']
+        sizes = [
+            breakdown.get('institutions_percent', 0),
+            breakdown.get('insiders_percent', 0),
+            breakdown.get('public_percent', 0)
+        ]
+        colors = ['#d4af37', '#00c896', '#6366f1']
+        explode = (0.02, 0.02, 0.02)
+        
+        # Setup plot
+        fig, ax = plt.subplots(figsize=(10, 8))
+        fig.patch.set_facecolor('#0d0d12')
+        ax.set_facecolor('#0d0d12')
+        
+        # Create pie chart
+        wedges, texts, autotexts = ax.pie(
+            sizes, 
+            labels=labels, 
+            colors=colors,
+            autopct='%1.1f%%',
+            explode=explode,
+            startangle=90,
+            pctdistance=0.75,
+            textprops={'color': 'white', 'fontsize': 12}
+        )
+        
+        # Style the percentage text
+        for autotext in autotexts:
+            autotext.set_color('white')
+            autotext.set_fontsize(14)
+            autotext.set_fontweight('bold')
+        
+        # Add center circle for donut effect
+        centre_circle = plt.Circle((0, 0), 0.50, fc='#0d0d12')
+        ax.add_artist(centre_circle)
+        
+        # Add institution count in center
+        inst_count = breakdown.get('institutions_count', 0)
+        ax.text(0, 0, f'{inst_count:,}\nInstitutions', 
+                ha='center', va='center', color='white', fontsize=14, fontweight='bold')
+        
+        ax.set_title(f'{ticker} Ownership Breakdown', 
+                     fontsize=16, color='white', fontweight='bold', pad=20)
+        
+        plt.tight_layout()
+        
+        if save_path:
+            plt.savefig(save_path, facecolor='#0d0d12', edgecolor='none', 
+                        bbox_inches='tight', dpi=150)
+        plt.close()
+        
+        return f"Ownership pie chart saved to <img {save_path}>"
+    
+    @staticmethod
+    def top_holders_chart(
+        ticker: str,
+        holder_type: str = 'institutional',
+        top_n: int = 10,
+        save_path: str = None
+    ) -> str:
+        """
+        Create a horizontal bar chart of top holders
+        
+        Args:
+            ticker: Stock ticker symbol
+            holder_type: 'institutional' or 'mutual_fund'
+            top_n: Number of top holders to show
+            save_path: Path to save the chart
+        
+        Returns:
+            Path to saved chart
+        """
+        from .ownership import OwnershipIntel
+        
+        # Get holder data
+        if holder_type == 'institutional':
+            holders_df = OwnershipIntel.get_institutional_holders(ticker, top_n)
+            title_prefix = "Top Institutional"
+        else:
+            holders_df = OwnershipIntel.get_mutual_fund_holders(ticker, top_n)
+            title_prefix = "Top Mutual Fund"
+        
+        if holders_df.empty or 'error' in holders_df.columns:
+            return f"No {holder_type} holder data available"
+        
+        # Prepare data - limit to top_n
+        df = holders_df.head(top_n).copy()
+        
+        if 'Holder' not in df.columns or 'Value (B)' not in df.columns:
+            # Try to use raw Value column
+            if 'Value' in df.columns:
+                df['Value (B)'] = df['Value'] / 1e9
+            else:
+                return "Incomplete holder data"
+        
+        # Reverse for horizontal bar chart (top at top)
+        df = df.iloc[::-1]
+        
+        # Setup plot
+        fig, ax = plt.subplots(figsize=(14, 8))
+        fig.patch.set_facecolor('#0d0d12')
+        ax.set_facecolor('#0d0d12')
+        
+        # Create horizontal bar chart
+        y_pos = np.arange(len(df))
+        colors = plt.cm.YlOrBr(np.linspace(0.3, 0.9, len(df)))
+        
+        bars = ax.barh(y_pos, df['Value (B)'], color=colors, alpha=0.9)
+        
+        # Add value labels
+        for bar, val in zip(bars, df['Value (B)']):
+            width = bar.get_width()
+            ax.text(width + 1, bar.get_y() + bar.get_height()/2, 
+                    f'${val:.1f}B', ha='left', va='center', 
+                    color='white', fontsize=10)
+        
+        # Truncate long holder names
+        holder_names = [h[:35] + '...' if len(str(h)) > 35 else str(h) 
+                       for h in df['Holder']]
+        
+        ax.set_yticks(y_pos)
+        ax.set_yticklabels(holder_names)
+        ax.set_xlabel('Holdings Value ($B)', color='#a0a0a8', fontsize=12)
+        
+        ax.tick_params(colors='#a0a0a8')
+        ax.spines['bottom'].set_color('#333')
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.spines['left'].set_color('#333')
+        ax.grid(True, alpha=0.1, color='white', axis='x')
+        
+        ax.set_title(f'{ticker} - {title_prefix} Holders', 
+                     fontsize=16, color='white', fontweight='bold', pad=20)
+        
+        plt.tight_layout()
+        
+        if save_path:
+            plt.savefig(save_path, facecolor='#0d0d12', edgecolor='none', 
+                        bbox_inches='tight', dpi=150)
+        plt.close()
+        
+        return f"Top holders chart saved to <img {save_path}>"
+    
+    @staticmethod
+    def insider_activity_chart(
+        ticker: str,
+        save_path: str = None
+    ) -> str:
+        """
+        Create a chart showing insider buying vs selling activity
+        
+        Args:
+            ticker: Stock ticker symbol
+            save_path: Path to save the chart
+        
+        Returns:
+            Path to saved chart
+        """
+        from .ownership import OwnershipIntel
+        
+        # Get insider data
+        summary = OwnershipIntel.get_insider_summary(ticker)
+        
+        if 'error' in summary:
+            return f"Error getting insider data: {summary['error']}"
+        
+        # Setup data
+        categories = ['Purchases', 'Sales']
+        shares = [
+            summary.get('purchases_shares', 0) / 1e6,  # Convert to millions
+            summary.get('sales_shares', 0) / 1e6
+        ]
+        counts = [
+            summary.get('purchases_count', 0),
+            summary.get('sales_count', 0)
+        ]
+        colors = ['#00c896', '#ff4757']
+        
+        # Setup plot
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
+        fig.patch.set_facecolor('#0d0d12')
+        
+        # Left chart: Shares traded
+        ax1.set_facecolor('#0d0d12')
+        bars1 = ax1.bar(categories, shares, color=colors, alpha=0.9)
+        
+        for bar, val in zip(bars1, shares):
+            height = bar.get_height()
+            ax1.text(bar.get_x() + bar.get_width()/2, height + 0.1,
+                     f'{val:.2f}M', ha='center', va='bottom', 
+                     color='white', fontsize=12, fontweight='bold')
+        
+        ax1.set_ylabel('Shares (Millions)', color='#a0a0a8', fontsize=12)
+        ax1.set_title('Shares Traded', fontsize=14, color='white', fontweight='bold')
+        ax1.tick_params(colors='#a0a0a8')
+        ax1.spines['bottom'].set_color('#333')
+        ax1.spines['top'].set_visible(False)
+        ax1.spines['right'].set_visible(False)
+        ax1.spines['left'].set_color('#333')
+        ax1.grid(True, alpha=0.1, color='white', axis='y')
+        
+        # Right chart: Transaction count
+        ax2.set_facecolor('#0d0d12')
+        bars2 = ax2.bar(categories, counts, color=colors, alpha=0.9)
+        
+        for bar, val in zip(bars2, counts):
+            height = bar.get_height()
+            ax2.text(bar.get_x() + bar.get_width()/2, height + 0.5,
+                     f'{int(val)}', ha='center', va='bottom', 
+                     color='white', fontsize=12, fontweight='bold')
+        
+        ax2.set_ylabel('Number of Transactions', color='#a0a0a8', fontsize=12)
+        ax2.set_title('Transaction Count', fontsize=14, color='white', fontweight='bold')
+        ax2.tick_params(colors='#a0a0a8')
+        ax2.spines['bottom'].set_color('#333')
+        ax2.spines['top'].set_visible(False)
+        ax2.spines['right'].set_visible(False)
+        ax2.spines['left'].set_color('#333')
+        ax2.grid(True, alpha=0.1, color='white', axis='y')
+        
+        # Add sentiment indicator
+        sentiment = summary.get('sentiment', 'Neutral')
+        sentiment_color = '#00c896' if 'Bullish' in sentiment else ('#ff4757' if 'Bearish' in sentiment else '#a0a0a8')
+        
+        fig.suptitle(f'{ticker} - Insider Activity (Last 6 Months)\nSentiment: {sentiment}', 
+                     fontsize=16, color='white', fontweight='bold', y=1.02)
+        fig.text(0.5, 0.96, f'Sentiment: {sentiment}', ha='center', 
+                 fontsize=12, color=sentiment_color, fontweight='bold')
+        
+        plt.tight_layout()
+        
+        if save_path:
+            plt.savefig(save_path, facecolor='#0d0d12', edgecolor='none', 
+                        bbox_inches='tight', dpi=150)
+        plt.close()
+        
+        return f"Insider activity chart saved to <img {save_path}>"
+    
+    @staticmethod
+    def ownership_comparison_chart(
+        tickers: list,
+        save_path: str = None
+    ) -> str:
+        """
+        Compare ownership structure across multiple stocks
+        
+        Args:
+            tickers: List of stock ticker symbols
+            save_path: Path to save the chart
+        
+        Returns:
+            Path to saved chart
+        """
+        from .ownership import OwnershipIntel
+        
+        # Get comparison data
+        comparison_df = OwnershipIntel.get_ownership_comparison(tickers)
+        
+        if comparison_df.empty:
+            return "No ownership comparison data available"
+        
+        # Setup plot
+        fig, ax = plt.subplots(figsize=(12, 7))
+        fig.patch.set_facecolor('#0d0d12')
+        ax.set_facecolor('#0d0d12')
+        
+        x = np.arange(len(tickers))
+        width = 0.25
+        
+        # Get values (handle N/A and Error values)
+        def safe_float(val):
+            try:
+                return float(val)
+            except (ValueError, TypeError):
+                return 0
+        
+        insider_vals = [safe_float(comparison_df[comparison_df['Ticker'] == t]['Insider %'].values[0]) 
+                       for t in tickers]
+        inst_vals = [safe_float(comparison_df[comparison_df['Ticker'] == t]['Institution %'].values[0]) 
+                    for t in tickers]
+        public_vals = [safe_float(comparison_df[comparison_df['Ticker'] == t]['Public %'].values[0]) 
+                      for t in tickers]
+        
+        # Create grouped bar chart
+        bars1 = ax.bar(x - width, insider_vals, width, label='Insiders', color='#00c896', alpha=0.9)
+        bars2 = ax.bar(x, inst_vals, width, label='Institutions', color='#d4af37', alpha=0.9)
+        bars3 = ax.bar(x + width, public_vals, width, label='Public', color='#6366f1', alpha=0.9)
+        
+        ax.set_ylabel('Ownership (%)', color='#a0a0a8', fontsize=12)
+        ax.set_xticks(x)
+        ax.set_xticklabels(tickers)
+        
+        ax.tick_params(colors='#a0a0a8')
+        ax.spines['bottom'].set_color('#333')
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.spines['left'].set_color('#333')
+        ax.grid(True, alpha=0.1, color='white', axis='y')
+        
+        ax.legend(loc='upper right', facecolor='#1a1a24', edgecolor='#333', 
+                  labelcolor='white', fontsize=10)
+        
+        ax.set_title('Ownership Structure Comparison', 
+                     fontsize=16, color='white', fontweight='bold', pad=20)
+        
+        plt.tight_layout()
+        
+        if save_path:
+            plt.savefig(save_path, facecolor='#0d0d12', edgecolor='none', 
+                        bbox_inches='tight', dpi=150)
+        plt.close()
+        
+        return f"Ownership comparison chart saved to <img {save_path}>"
+
+
 if __name__ == "__main__":
     # Example usage:
     start_date = "2024-03-01"
