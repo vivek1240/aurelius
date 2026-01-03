@@ -497,14 +497,14 @@ if page == "🤖 AI Command Center":
     # Available tools info box
     with st.expander("🛠️ Available AI Tools", expanded=False):
         st.markdown("""
-        | Tool | Description |
-        |------|-------------|
-        | 📈 **Stock Data** | Get prices, income statements, balance sheets, cash flow |
-        | 📊 **Charts** | Candlestick, Line, Renko, Point & Figure charts |
-        | 📉 **Analysis** | Financial analysis, risk assessment, segment breakdown |
-        | ⚔️ **Backtest** | Test strategies: SMA, RSI, MACD, Bollinger Bands |
-        | 🏢 **Company Info** | Company profile, news, key metrics |
-        | 📊 **Comparison** | Stock performance vs S&P 500 |
+        | Tool | Description | Example |
+        |------|-------------|---------|
+        | 📈 **Stock Data** | Get prices, income statements, balance sheets, cash flow | *"Show AAPL financials"* |
+        | 📊 **Charts** | Candlestick, Line, Renko, Point & Figure charts | *"Create a chart for NVDA"* |
+        | 📉 **Analysis** | Financial analysis, risk assessment, segment breakdown | *"Analyze TSLA risk"* |
+        | ⚔️ **Backtest** | Test strategies: SMA, RSI, MACD, Bollinger Bands | *"Backtest RSI on MSFT"* |
+        | 🏢 **Company Info** | Company profile, news, key metrics | *"Tell me about Apple"* |
+        | 🆚 **Compare Stocks** | Compare multiple stocks side-by-side on financials, valuations & performance | *"Compare NVDA, AMD, INTC"* |
         """)
     
     st.divider()
@@ -525,7 +525,7 @@ if page == "🤖 AI Command Center":
     # Suggested prompts (only show if no messages yet)
     if not st.session_state.command_center_messages:
         st.markdown("**Try asking:**")
-        col1, col2, col3, col4 = st.columns(4)
+        col1, col2, col3, col4, col5 = st.columns(5)
         
         with col1:
             if st.button("📈 Analyze NVDA", use_container_width=True):
@@ -536,10 +536,14 @@ if page == "🤖 AI Command Center":
                 st.session_state.pending_prompt = "Create a candlestick chart for AAPL"
                 st.rerun()
         with col3:
+            if st.button("🆚 Compare Chips", use_container_width=True):
+                st.session_state.pending_prompt = "Compare NVDA, AMD, and INTC on financials, valuations, and performance"
+                st.rerun()
+        with col4:
             if st.button("⚔️ Backtest TSLA", use_container_width=True):
                 st.session_state.pending_prompt = "Run RSI backtest on TSLA with $10,000"
                 st.rerun()
-        with col4:
+        with col5:
             if st.button("💰 MSFT Financials", use_container_width=True):
                 st.session_state.pending_prompt = "Show me Microsoft's income statement and key financials"
                 st.rerun()
