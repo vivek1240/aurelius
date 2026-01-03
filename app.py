@@ -17,8 +17,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from aurelius.utils import register_keys_from_json, get_current_date
 from aurelius.data_source import FinnHubUtils, YFinanceUtils, FMPUtils
-from aurelius.functional.charting import MplFinanceUtils, ReportChartUtils
+from aurelius.functional.charting import MplFinanceUtils, ReportChartUtils, ComparisonCharts
 from aurelius.functional.quantitative import BackTraderUtils
+from aurelius.functional.comparison import StockComparator
 import tempfile
 import base64
 
@@ -442,7 +443,7 @@ with st.sidebar:
     st.markdown("<p style='color: #a0a0a8; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.75rem; font-weight: 600;'>Navigation</p>", unsafe_allow_html=True)
     page = st.radio(
         "Navigation",
-        ["🤖 AI Command Center", "🎛️ Command Deck", "🔬 Deep Scan", "🏛️ The Vault", "📡 Signal Wire", "🔮 The Oracle", "⚔️ Backtest Arena", "📑 Report Forge", "📱 Social Pulse", "📚 Research Library"],
+        ["🤖 AI Command Center", "🎛️ Command Deck", "🔬 Deep Scan", "🏛️ The Vault", "📊 Comparator", "📡 Signal Wire", "🔮 The Oracle", "⚔️ Backtest Arena", "📑 Report Forge", "📱 Social Pulse", "📚 Research Library"],
         label_visibility="collapsed"
     )
     
@@ -1335,6 +1336,178 @@ elif page == "🏛️ The Vault":
                         
             except Exception as e:
                 st.error(f"Error fetching financials: {str(e)}")
+
+elif page == "📊 Comparator":
+    st.title("📊 Stock Comparator")
+    st.caption("Compare multiple stocks side-by-side on financials, valuations, growth, and performance.")
+    
+    st.divider()
+    
+    # Multi-stock input
+    st.markdown("### Select Stocks to Compare")
+    
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        compare_input = st.text_input(
+            "Enter ticker symbols separated by commas",
+            value="NVDA, AMD, INTC",
+            placeholder="e.g., NVDA, AMD, INTC, QCOM"
+        )
+    with col2:
+        period_options = {"1 Month": 30, "3 Months": 90, "6 Months": 180, "1 Year": 365, "2 Years": 730}
+        selected_period = st.selectbox("Period", list(period_options.keys()), index=3)
+    
+    # Parse tickers
+    compare_tickers = [t.strip().upper() for t in compare_input.split(",") if t.strip()]
+    
+    if len(compare_tickers) < 2:
+        st.warning("Please enter at least 2 ticker symbols to compare.")
+    elif len(compare_tickers) > 5:
+        st.warning("Maximum 5 stocks can be compared at once. Using first 5.")
+        compare_tickers = compare_tickers[:5]
+    
+    if len(compare_tickers) >= 2 and st.button("🔍 Compare Stocks", use_container_width=True):
+        with st.spinner(f"Comparing {', '.join(compare_tickers)}..."):
+            try:
+                # Get comparison data
+                comparison_data = StockComparator.get_comparison_data(compare_tickers)
+                performance_data = StockComparator.get_price_performance(compare_tickers, period_options[selected_period])
+                best_in_class = StockComparator.identify_best_in_class(compare_tickers)
+                comparison_table = StockComparator.create_comparison_table(compare_tickers)
+                
+                # Overview cards
+                st.markdown("### 📋 Company Overview")
+                overview_cols = st.columns(len(compare_tickers))
+                for i, ticker in enumerate(compare_tickers):
+                    with overview_cols[i]:
+                        if ticker in comparison_data["overview"]:
+                            info = comparison_data["overview"][ticker]
+                            st.markdown(f"""
+                            <div class="metric-card">
+                                <h3 style="color: #d4af37; margin-bottom: 0.5rem;">{ticker}</h3>
+                                <p style="color: #f8f8f8; font-size: 1rem; margin-bottom: 0.5rem;">{info.get('name', ticker)}</p>
+                                <p style="color: #a0a0a8; font-size: 0.85rem;">{info.get('sector', 'N/A')} • {info.get('industry', 'N/A')}</p>
+                            </div>
+                            """, unsafe_allow_html=True)
+                
+                st.divider()
+                
+                # Tabs for different views
+                tab1, tab2, tab3, tab4 = st.tabs(["📊 Comparison Table", "📈 Performance", "💰 Margins", "🏆 Best in Class"])
+                
+                with tab1:
+                    st.markdown("### Financial Comparison")
+                    st.dataframe(comparison_table, use_container_width=True, height=500)
+                    
+                    # Download button
+                    csv = comparison_table.to_csv()
+                    st.download_button(
+                        label="📥 Download CSV",
+                        data=csv,
+                        file_name=f"comparison_{'_'.join(compare_tickers)}.csv",
+                        mime="text/csv"
+                    )
+                
+                with tab2:
+                    st.markdown("### Price Performance")
+                    
+                    # Performance metrics
+                    perf_cols = st.columns(len(compare_tickers) + 1)
+                    all_tickers = compare_tickers + (["S&P 500"] if "S&P 500" in performance_data.get("performance", {}) else [])
+                    
+                    for i, t in enumerate(all_tickers):
+                        with perf_cols[i] if i < len(perf_cols) else st.container():
+                            if t in performance_data.get("performance", {}):
+                                perf = performance_data["performance"][t]
+                                return_val = perf.get("total_return", 0)
+                                color = "#00c896" if return_val >= 0 else "#ff4757"
+                                st.metric(
+                                    t,
+                                    f"{return_val:+.1f}%",
+                                    f"Vol: {perf.get('volatility', 'N/A')}%" if 'volatility' in perf else None
+                                )
+                    
+                    # Performance chart
+                    st.markdown("#### Normalized Price Performance")
+                    with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
+                        tmp_path = tmp.name
+                    
+                    ComparisonCharts.performance_comparison_chart(compare_tickers, period_options[selected_period], tmp_path)
+                    st.image(tmp_path, use_container_width=True)
+                    os.unlink(tmp_path)
+                
+                with tab3:
+                    st.markdown("### Profit Margins Comparison")
+                    
+                    # Margins chart
+                    with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
+                        tmp_path = tmp.name
+                    
+                    ComparisonCharts.margins_comparison_chart(compare_tickers, tmp_path)
+                    st.image(tmp_path, use_container_width=True)
+                    os.unlink(tmp_path)
+                    
+                    # Margins table
+                    margins_data = []
+                    for ticker in compare_tickers:
+                        if ticker in comparison_data["financials"]:
+                            fin = comparison_data["financials"][ticker]
+                            margins_data.append({
+                                "Ticker": ticker,
+                                "Gross Margin": f"{fin.get('gross_margin', 0):.1f}%",
+                                "Operating Margin": f"{fin.get('operating_margin', 0):.1f}%",
+                                "Net Margin": f"{fin.get('net_margin', 0):.1f}%"
+                            })
+                    
+                    if margins_data:
+                        import pandas as pd
+                        margins_df = pd.DataFrame(margins_data)
+                        st.dataframe(margins_df, use_container_width=True, hide_index=True)
+                
+                with tab4:
+                    st.markdown("### 🏆 Best in Class")
+                    st.markdown("Which stock leads in each category:")
+                    
+                    if best_in_class:
+                        best_cols = st.columns(3)
+                        categories = list(best_in_class.items())
+                        
+                        for i, (category, winner) in enumerate(categories):
+                            with best_cols[i % 3]:
+                                st.markdown(f"""
+                                <div class="metric-card" style="text-align: center;">
+                                    <p style="color: #a0a0a8; font-size: 0.8rem; margin-bottom: 0.5rem;">{category}</p>
+                                    <p style="color: #d4af37; font-size: 1.5rem; font-weight: bold;">{winner}</p>
+                                </div>
+                                """, unsafe_allow_html=True)
+                    else:
+                        st.info("Could not determine best in class. Check if data is available for all stocks.")
+                
+            except Exception as e:
+                st.error(f"Error comparing stocks: {str(e)}")
+    
+    # Quick comparison suggestions
+    st.divider()
+    st.markdown("### 💡 Quick Comparisons")
+    
+    suggestion_cols = st.columns(4)
+    suggestions = [
+        ("🖥️ Semiconductors", "NVDA, AMD, INTC, QCOM"),
+        ("☁️ Cloud/Tech", "MSFT, GOOGL, AMZN, META"),
+        ("🚗 EV/Auto", "TSLA, F, GM, RIVN"),
+        ("💊 Pharma", "JNJ, PFE, MRK, ABBV")
+    ]
+    
+    for i, (label, tickers) in enumerate(suggestions):
+        with suggestion_cols[i]:
+            if st.button(label, use_container_width=True, key=f"suggest_comp_{i}"):
+                st.session_state.compare_suggestion = tickers
+                st.rerun()
+    
+    # Handle suggestion click
+    if 'compare_suggestion' in st.session_state:
+        st.info(f"💡 Try comparing: {st.session_state.compare_suggestion}")
+        del st.session_state.compare_suggestion
 
 elif page == "📡 Signal Wire":
     st.markdown("## 📡 Signal Wire")

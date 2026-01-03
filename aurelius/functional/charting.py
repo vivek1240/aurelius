@@ -232,6 +232,299 @@ class ReportChartUtils:
         return f"pe performance chart saved to <img {plot_path}>"
 
 
+class ComparisonCharts:
+    """Charts for comparing multiple stocks"""
+    
+    @staticmethod
+    def performance_comparison_chart(
+        tickers: list,
+        period_days: int = 365,
+        save_path: str = None
+    ) -> str:
+        """
+        Create a normalized price performance comparison chart
+        
+        Args:
+            tickers: List of ticker symbols to compare
+            period_days: Number of days to look back
+            save_path: Path to save the chart
+        
+        Returns:
+            Path to saved chart
+        """
+        from .comparison import StockComparator
+        
+        # Get performance data
+        perf_data = StockComparator.get_price_performance(tickers, period_days)
+        
+        # Setup plot
+        plt.rcParams.update({"font.size": 12})
+        fig, ax = plt.subplots(figsize=(14, 8))
+        
+        # Colors for different stocks
+        colors = ['#d4af37', '#00c896', '#ff4757', '#6366f1', '#a855f7', '#f97316']
+        
+        # Plot each stock
+        for i, ticker in enumerate(tickers + (["S&P 500"] if "S&P 500" in perf_data["normalized"] else [])):
+            if ticker in perf_data["normalized"]:
+                data = perf_data["normalized"][ticker]
+                dates = pd.to_datetime(list(data.keys()))
+                values = list(data.values())
+                color = colors[i % len(colors)]
+                linewidth = 2.5 if ticker != "S&P 500" else 1.5
+                linestyle = '-' if ticker != "S&P 500" else '--'
+                ax.plot(dates, values, label=ticker, color=color, linewidth=linewidth, linestyle=linestyle)
+        
+        # Styling
+        ax.axhline(y=0, color='white', linestyle='-', linewidth=0.5, alpha=0.3)
+        ax.set_facecolor('#0d0d12')
+        fig.patch.set_facecolor('#0d0d12')
+        
+        ax.set_title(f"Stock Performance Comparison ({period_days} Days)", 
+                     fontsize=16, color='white', fontweight='bold', pad=20)
+        ax.set_xlabel("Date", color='#a0a0a8', fontsize=12)
+        ax.set_ylabel("Return (%)", color='#a0a0a8', fontsize=12)
+        
+        ax.tick_params(colors='#a0a0a8')
+        ax.spines['bottom'].set_color('#333')
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.spines['left'].set_color('#333')
+        ax.grid(True, alpha=0.1, color='white')
+        
+        ax.legend(loc='upper left', facecolor='#1a1a24', edgecolor='#333', 
+                  labelcolor='white', fontsize=10)
+        
+        plt.tight_layout()
+        
+        if save_path:
+            plt.savefig(save_path, facecolor='#0d0d12', edgecolor='none', 
+                        bbox_inches='tight', dpi=150)
+        plt.close()
+        
+        return f"Performance comparison chart saved to <img {save_path}>"
+    
+    @staticmethod
+    def revenue_comparison_chart(
+        tickers: list,
+        years: int = 5,
+        save_path: str = None
+    ) -> str:
+        """
+        Create a grouped bar chart comparing revenue over time
+        
+        Args:
+            tickers: List of ticker symbols
+            years: Number of years of history
+            save_path: Path to save the chart
+        
+        Returns:
+            Path to saved chart
+        """
+        from .comparison import StockComparator
+        
+        # Get historical data
+        hist_data = StockComparator.get_financial_history(tickers, years)
+        
+        # Setup plot
+        fig, ax = plt.subplots(figsize=(14, 8))
+        
+        # Get all years
+        all_years = set()
+        for ticker in tickers:
+            if ticker in hist_data["revenue_history"]:
+                all_years.update(hist_data["revenue_history"][ticker].keys())
+        years_list = sorted(all_years, reverse=True)[:years]
+        years_list = sorted(years_list)
+        
+        # Bar positioning
+        x = np.arange(len(years_list))
+        width = 0.8 / len(tickers)
+        colors = ['#d4af37', '#00c896', '#ff4757', '#6366f1', '#a855f7']
+        
+        # Plot bars for each ticker
+        for i, ticker in enumerate(tickers):
+            if ticker in hist_data["revenue_history"]:
+                values = [hist_data["revenue_history"][ticker].get(year, 0) / 1e9 
+                          for year in years_list]
+                offset = (i - len(tickers)/2 + 0.5) * width
+                ax.bar(x + offset, values, width, label=ticker, color=colors[i % len(colors)])
+        
+        # Styling
+        ax.set_facecolor('#0d0d12')
+        fig.patch.set_facecolor('#0d0d12')
+        
+        ax.set_title("Revenue Comparison (Billions $)", 
+                     fontsize=16, color='white', fontweight='bold', pad=20)
+        ax.set_xlabel("Year", color='#a0a0a8', fontsize=12)
+        ax.set_ylabel("Revenue ($B)", color='#a0a0a8', fontsize=12)
+        ax.set_xticks(x)
+        ax.set_xticklabels(years_list)
+        
+        ax.tick_params(colors='#a0a0a8')
+        ax.spines['bottom'].set_color('#333')
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.spines['left'].set_color('#333')
+        ax.grid(True, alpha=0.1, color='white', axis='y')
+        
+        ax.legend(loc='upper left', facecolor='#1a1a24', edgecolor='#333', 
+                  labelcolor='white', fontsize=10)
+        
+        plt.tight_layout()
+        
+        if save_path:
+            plt.savefig(save_path, facecolor='#0d0d12', edgecolor='none', 
+                        bbox_inches='tight', dpi=150)
+        plt.close()
+        
+        return f"Revenue comparison chart saved to <img {save_path}>"
+    
+    @staticmethod
+    def margins_comparison_chart(
+        tickers: list,
+        save_path: str = None
+    ) -> str:
+        """
+        Create a grouped bar chart comparing margins
+        
+        Args:
+            tickers: List of ticker symbols
+            save_path: Path to save the chart
+        
+        Returns:
+            Path to saved chart
+        """
+        from .comparison import StockComparator
+        
+        # Get comparison data
+        data = StockComparator.get_comparison_data(tickers)
+        
+        # Setup plot
+        fig, ax = plt.subplots(figsize=(12, 7))
+        
+        margin_types = ['Gross Margin', 'Operating Margin', 'Net Margin']
+        x = np.arange(len(margin_types))
+        width = 0.8 / len(tickers)
+        colors = ['#d4af37', '#00c896', '#ff4757', '#6366f1', '#a855f7']
+        
+        # Plot bars for each ticker
+        for i, ticker in enumerate(tickers):
+            if ticker in data["financials"]:
+                values = [
+                    data["financials"][ticker].get("gross_margin", 0),
+                    data["financials"][ticker].get("operating_margin", 0),
+                    data["financials"][ticker].get("net_margin", 0)
+                ]
+                offset = (i - len(tickers)/2 + 0.5) * width
+                ax.bar(x + offset, values, width, label=ticker, color=colors[i % len(colors)])
+        
+        # Styling
+        ax.set_facecolor('#0d0d12')
+        fig.patch.set_facecolor('#0d0d12')
+        
+        ax.set_title("Profit Margins Comparison (%)", 
+                     fontsize=16, color='white', fontweight='bold', pad=20)
+        ax.set_ylabel("Margin (%)", color='#a0a0a8', fontsize=12)
+        ax.set_xticks(x)
+        ax.set_xticklabels(margin_types)
+        
+        ax.tick_params(colors='#a0a0a8')
+        ax.spines['bottom'].set_color('#333')
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.spines['left'].set_color('#333')
+        ax.grid(True, alpha=0.1, color='white', axis='y')
+        
+        ax.legend(loc='upper right', facecolor='#1a1a24', edgecolor='#333', 
+                  labelcolor='white', fontsize=10)
+        
+        plt.tight_layout()
+        
+        if save_path:
+            plt.savefig(save_path, facecolor='#0d0d12', edgecolor='none', 
+                        bbox_inches='tight', dpi=150)
+        plt.close()
+        
+        return f"Margins comparison chart saved to <img {save_path}>"
+    
+    @staticmethod
+    def valuation_comparison_chart(
+        tickers: list,
+        save_path: str = None
+    ) -> str:
+        """
+        Create a valuation comparison chart (P/E, P/S, EV/EBITDA)
+        
+        Args:
+            tickers: List of ticker symbols
+            save_path: Path to save the chart
+        
+        Returns:
+            Path to saved chart
+        """
+        from .comparison import StockComparator
+        
+        # Get comparison data
+        data = StockComparator.get_comparison_data(tickers)
+        
+        # Setup plot
+        fig, axes = plt.subplots(1, 3, figsize=(15, 6))
+        fig.patch.set_facecolor('#0d0d12')
+        
+        colors = ['#d4af37', '#00c896', '#ff4757', '#6366f1', '#a855f7']
+        
+        metrics = [
+            ('pe_ratio', 'P/E Ratio'),
+            ('ps_ratio', 'P/S Ratio'),
+            ('ev_ebitda', 'EV/EBITDA')
+        ]
+        
+        for idx, (metric, title) in enumerate(metrics):
+            ax = axes[idx]
+            ax.set_facecolor('#0d0d12')
+            
+            values = []
+            labels = []
+            bar_colors = []
+            
+            for i, ticker in enumerate(tickers):
+                if ticker in data["valuations"]:
+                    val = data["valuations"][ticker].get(metric)
+                    if val is not None and val > 0:
+                        values.append(val)
+                        labels.append(ticker)
+                        bar_colors.append(colors[i % len(colors)])
+            
+            if values:
+                bars = ax.bar(labels, values, color=bar_colors)
+                
+                # Add value labels on bars
+                for bar, val in zip(bars, values):
+                    ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.5,
+                            f'{val:.1f}', ha='center', va='bottom', 
+                            color='white', fontsize=10)
+            
+            ax.set_title(title, fontsize=14, color='white', fontweight='bold')
+            ax.tick_params(colors='#a0a0a8')
+            ax.spines['bottom'].set_color('#333')
+            ax.spines['top'].set_visible(False)
+            ax.spines['right'].set_visible(False)
+            ax.spines['left'].set_color('#333')
+            ax.grid(True, alpha=0.1, color='white', axis='y')
+        
+        plt.suptitle("Valuation Multiples Comparison", 
+                     fontsize=16, color='white', fontweight='bold', y=1.02)
+        plt.tight_layout()
+        
+        if save_path:
+            plt.savefig(save_path, facecolor='#0d0d12', edgecolor='none', 
+                        bbox_inches='tight', dpi=150)
+        plt.close()
+        
+        return f"Valuation comparison chart saved to <img {save_path}>"
+
+
 if __name__ == "__main__":
     # Example usage:
     start_date = "2024-03-01"

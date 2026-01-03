@@ -12,10 +12,11 @@ from typing import Dict, Any, Optional
 
 # Import all utilities
 from ..data_source import YFinanceUtils, FinnHubUtils, FMPUtils
-from .charting import MplFinanceUtils, ReportChartUtils
+from .charting import MplFinanceUtils, ReportChartUtils, ComparisonCharts
 from .quantitative import BackTraderUtils
 from .analyzer import ReportAnalysisUtils
 from .strategies import STRATEGY_REGISTRY, STRATEGY_INFO
+from .comparison import StockComparator
 
 
 # ============================================================================
@@ -255,6 +256,34 @@ TOOL_DEFINITIONS = [
                 "required": ["ticker"]
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "compare_stocks",
+            "description": "Compare multiple stocks side-by-side on financials, valuations, growth, and performance. Great for analyzing competitors or sector peers.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "tickers": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "List of stock ticker symbols to compare (e.g., ['NVDA', 'AMD', 'INTC'])"
+                    },
+                    "include_chart": {
+                        "type": "boolean",
+                        "description": "Whether to generate a performance comparison chart (default true)",
+                        "default": True
+                    },
+                    "period_days": {
+                        "type": "integer",
+                        "description": "Number of days for performance comparison (default 365)",
+                        "default": 365
+                    }
+                },
+                "required": ["tickers"]
+            }
+        }
     }
 ]
 
@@ -293,6 +322,8 @@ class ToolExecutor:
                 return ToolExecutor._analyze_financials(**arguments)
             elif tool_name == "get_basic_financials":
                 return ToolExecutor._get_basic_financials(**arguments)
+            elif tool_name == "compare_stocks":
+                return ToolExecutor._compare_stocks(**arguments)
             else:
                 return {"error": f"Unknown tool: {tool_name}"}
         except Exception as e:
@@ -596,6 +627,47 @@ class ToolExecutor:
             if financials:
                 return {"ticker": ticker, "financials": financials}
             return {"ticker": ticker, "financials": {}, "message": "Limited data available"}
+        except Exception as e:
+            return {"error": str(e)}
+    
+    @staticmethod
+    def _compare_stocks(tickers: list, include_chart: bool = True, period_days: int = 365) -> Dict[str, Any]:
+        """Compare multiple stocks side-by-side"""
+        try:
+            # Get comparison data
+            comparison_data = StockComparator.get_comparison_data(tickers)
+            performance_data = StockComparator.get_price_performance(tickers, period_days)
+            best_in_class = StockComparator.identify_best_in_class(tickers)
+            
+            # Format the comparison table
+            comparison_table = StockComparator.create_comparison_table(tickers)
+            
+            # Build result
+            result = {
+                "tickers": tickers,
+                "comparison_table": comparison_table.to_dict(),
+                "performance": performance_data.get("performance", {}),
+                "best_in_class": best_in_class,
+                "overview": comparison_data.get("overview", {}),
+            }
+            
+            # Generate chart if requested
+            if include_chart:
+                with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
+                    tmp_path = tmp.name
+                
+                ComparisonCharts.performance_comparison_chart(tickers, period_days, tmp_path)
+                
+                with open(tmp_path, 'rb') as f:
+                    img_data = base64.b64encode(f.read()).decode()
+                
+                os.unlink(tmp_path)
+                
+                result["image_base64"] = img_data
+                result["has_image"] = True
+            
+            return result
+            
         except Exception as e:
             return {"error": str(e)}
 
