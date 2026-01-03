@@ -1010,20 +1010,54 @@ class ToolExecutor:
                     }
                     mf_holders_list.append(holder_info)
             
+            # Format data for AI-friendly response
+            inst_pct = round(breakdown.get("institutions_percent", 0), 2)
+            insider_pct = round(breakdown.get("insiders_percent", 0), 2)
+            public_pct = round(breakdown.get("public_percent", 0), 2)
+            inst_count = breakdown.get("institutions_count", 0)
+            
+            purchases = insider_summary.get("purchases_shares", 0)
+            sales = insider_summary.get("sales_shares", 0)
+            net = insider_summary.get("net_shares", 0)
+            sentiment = insider_summary.get("sentiment", "N/A")
+            
+            # Create summary text for AI to easily relay
+            summary_text = f"""
+OWNERSHIP BREAKDOWN FOR {ticker.upper()}:
+- Institutional Ownership: {inst_pct}% ({inst_count:,} institutions)
+- Insider Ownership: {insider_pct}%
+- Public/Retail Ownership: {public_pct}%
+
+INSIDER ACTIVITY (Last 6 Months):
+- Purchases: {purchases:,.0f} shares
+- Sales: {sales:,.0f} shares  
+- Net Activity: {net:+,.0f} shares
+- Sentiment: {sentiment}
+
+TOP 5 INSTITUTIONAL HOLDERS:
+"""
+            for i, holder in enumerate(inst_holders_list[:5], 1):
+                summary_text += f"{i}. {holder['holder']} - ${holder['value_billions']}B\n"
+            
+            summary_text += "\nTOP 5 MUTUAL FUND HOLDERS:\n"
+            for i, holder in enumerate(mf_holders_list[:5], 1):
+                summary_text += f"{i}. {holder['holder'][:50]}{'...' if len(holder['holder']) > 50 else ''} - ${holder['value_billions']}B\n"
+            
             result = {
                 "ticker": ticker,
+                "summary": summary_text,
                 "ownership_breakdown": {
-                    "insiders_percent": round(breakdown.get("insiders_percent", 0), 2),
-                    "institutions_percent": round(breakdown.get("institutions_percent", 0), 2),
-                    "public_percent": round(breakdown.get("public_percent", 0), 2),
-                    "institutions_count": breakdown.get("institutions_count", 0)
+                    "insiders_percent": insider_pct,
+                    "institutions_percent": inst_pct,
+                    "public_percent": public_pct,
+                    "institutions_count": inst_count
                 },
                 "insider_activity": {
-                    "purchases_shares": insider_summary.get("purchases_shares", 0),
-                    "sales_shares": insider_summary.get("sales_shares", 0),
-                    "net_shares": insider_summary.get("net_shares", 0),
-                    "sentiment": insider_summary.get("sentiment", "N/A"),
-                    "period": insider_summary.get("period", "Last 6 Months")
+                    "purchases_shares": purchases,
+                    "sales_shares": sales,
+                    "net_shares": net,
+                    "sentiment": sentiment,
+                    "period": "Last 6 Months"
                 },
                 "top_institutional_holders": inst_holders_list,
                 "top_mutual_fund_holders": mf_holders_list
