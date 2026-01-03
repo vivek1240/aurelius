@@ -1056,12 +1056,14 @@ class OwnershipCharts:
         sentiment = summary.get('sentiment', 'Neutral')
         sentiment_color = '#00c896' if 'Bullish' in sentiment else ('#ff4757' if 'Bearish' in sentiment else '#a0a0a8')
         
-        fig.suptitle(f'{ticker} - Insider Activity (Last 6 Months)\nSentiment: {sentiment}', 
+        # Main title (without sentiment to avoid duplication)
+        fig.suptitle(f'{ticker} - Insider Activity (Last 6 Months)', 
                      fontsize=16, color='white', fontweight='bold', y=1.02)
-        fig.text(0.5, 0.96, f'Sentiment: {sentiment}', ha='center', 
+        # Sentiment subtitle with color coding
+        fig.text(0.5, 0.95, f'Sentiment: {sentiment}', ha='center', 
                  fontsize=12, color=sentiment_color, fontweight='bold')
         
-        plt.tight_layout()
+        plt.tight_layout(rect=[0, 0, 1, 0.93])
         
         if save_path:
             plt.savefig(save_path, facecolor='#0d0d12', edgecolor='none', 
