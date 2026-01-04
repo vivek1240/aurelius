@@ -1111,16 +1111,16 @@ elif page == "🔬 Deep Scan":
                                 st.error(f"Error generating {chart_type} chart: {str(chart_err)}")
                         else:
                             # Use Plotly for standard chart types
-                        fig = go.Figure()
-                        
+                            fig = go.Figure()
+                            
                             # Dynamic chart type
                             if chart_type == "Candlestick":
-                        fig.add_trace(go.Candlestick(
-                            x=stock_data.index,
-                            open=stock_data['Open'],
-                            high=stock_data['High'],
-                            low=stock_data['Low'],
-                            close=stock_data['Close'],
+                                fig.add_trace(go.Candlestick(
+                                    x=stock_data.index,
+                                    open=stock_data['Open'],
+                                    high=stock_data['High'],
+                                    low=stock_data['Low'],
+                                    close=stock_data['Close'],
                                     name='Price',
                                     increasing_line_color='#00c896',
                                     decreasing_line_color='#ff4757'
@@ -1137,8 +1137,8 @@ elif page == "🔬 Deep Scan":
                                     decreasing_line_color='#ff4757'
                                 ))
                             elif chart_type == "Line":
-                        fig.add_trace(go.Scatter(
-                            x=stock_data.index,
+                                fig.add_trace(go.Scatter(
+                                    x=stock_data.index,
                                     y=stock_data['Close'],
                                     name='Close Price',
                                     line=dict(color='#d4af37', width=2)
@@ -1181,29 +1181,29 @@ elif page == "🔬 Deep Scan":
                     with tab2:
                         # Volume chart (conditional on checkbox)
                         if show_volume:
-                        fig_vol = go.Figure()
+                            fig_vol = go.Figure()
                             colors = ['#00c896' if stock_data['Close'].iloc[i] >= stock_data['Open'].iloc[i] 
                                       else '#ff4757' for i in range(len(stock_data))]
-                        
-                        fig_vol.add_trace(go.Bar(
-                            x=stock_data.index,
-                            y=stock_data['Volume'],
-                            marker_color=colors,
-                            name='Volume'
-                        ))
-                        
-                        fig_vol.update_layout(
-                            title="Trading Volume",
-                            template="plotly_dark",
-                            paper_bgcolor='rgba(0,0,0,0)',
+                            
+                            fig_vol.add_trace(go.Bar(
+                                x=stock_data.index,
+                                y=stock_data['Volume'],
+                                marker_color=colors,
+                                name='Volume'
+                            ))
+                            
+                            fig_vol.update_layout(
+                                title="Trading Volume",
+                                template="plotly_dark",
+                                paper_bgcolor='rgba(0,0,0,0)',
                                 plot_bgcolor='rgba(12,12,18,0.95)',
                                 font=dict(family="DM Sans", color="#a0a0a8"),
                                 xaxis=dict(gridcolor='rgba(255,255,255,0.03)'),
                                 yaxis=dict(gridcolor='rgba(255,255,255,0.03)'),
-                            height=300
-                        )
-                        
-                        st.plotly_chart(fig_vol, use_container_width=True)
+                                height=300
+                            )
+                            
+                            st.plotly_chart(fig_vol, use_container_width=True)
                         else:
                             st.info("📊 Enable 'Show Volume' checkbox to view volume data")
                         
@@ -1411,7 +1411,7 @@ elif page == "📈 Earnings Intel":
     
     # Input section
     col1, col2 = st.columns([3, 1])
-                                with col1:
+    with col1:
         earnings_ticker = st.text_input("Stock Ticker", value="NVDA", placeholder="Enter ticker symbol").upper().strip()
     with col2:
         earnings_quarters = st.selectbox("Quarters History", [4, 6, 8, 12], index=2)
@@ -1875,7 +1875,7 @@ elif page == "📌 Watchlist":
                         "Notes": item.get("notes", "")[:30] + "..." if item.get("notes") and len(item.get("notes", "")) > 30 else item.get("notes", "—"),
                         "Added Date": item.get("added_at", "")[:10] if item.get("added_at") else "N/A"
                     })
-            except Exception as e:
+                except Exception as e:
                     watchlist_data.append({
                         "Ticker": ticker_sym,
                         "Current": "Error",
