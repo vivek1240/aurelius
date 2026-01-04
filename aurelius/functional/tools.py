@@ -8,11 +8,11 @@ import json
 import tempfile
 import base64
 from datetime import datetime, timedelta
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
 # Import all utilities
 from ..data_source import YFinanceUtils, FinnHubUtils, FMPUtils
-from .charting import MplFinanceUtils, ReportChartUtils, ComparisonCharts, EarningsCharts
+from .charting import MplFinanceUtils, ReportChartUtils, ComparisonCharts, EarningsCharts, OwnershipCharts, DCFCharts
 from .quantitative import BackTraderUtils
 from .analyzer import ReportAnalysisUtils
 from .strategies import STRATEGY_REGISTRY, STRATEGY_INFO
@@ -20,7 +20,7 @@ from .comparison import StockComparator
 from .earnings import EarningsIntel
 from .storage import WatchlistManager, ResearchManager, AlertManager
 from .ownership import OwnershipIntel
-from .charting import OwnershipCharts
+from .dcf import DCFModel
 
 
 # ============================================================================
@@ -382,6 +382,49 @@ TOOL_DEFINITIONS = [
                 "required": ["ticker"]
             }
         }
+    },
+    # DCF Valuation Tool
+    {
+        "type": "function",
+        "function": {
+            "name": "run_dcf_analysis",
+            "description": "Run a comprehensive Discounted Cash Flow (DCF) valuation model for a stock. Calculates intrinsic value per share based on projected free cash flows, WACC, and terminal value. Can also generate projection charts, sensitivity analysis heatmaps, and valuation waterfall charts.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "ticker": {
+                        "type": "string",
+                        "description": "Stock ticker symbol (e.g., NVDA, AAPL)"
+                    },
+                    "include_chart": {
+                        "type": "boolean",
+                        "description": "Whether to generate a chart (default true)",
+                        "default": True
+                    },
+                    "chart_type": {
+                        "type": "string",
+                        "enum": ["projection", "sensitivity", "waterfall"],
+                        "description": "Type of chart: 'projection' for revenue/FCF projections, 'sensitivity' for WACC vs Growth matrix, 'waterfall' for valuation breakdown",
+                        "default": "waterfall"
+                    },
+                    "revenue_growth_override": {
+                        "type": "array",
+                        "items": {"type": "number"},
+                        "description": "Optional custom revenue growth rates for 5 years (e.g., [0.25, 0.20, 0.15, 0.10, 0.08])"
+                    },
+                    "terminal_growth": {
+                        "type": "number",
+                        "description": "Terminal growth rate (default 2.5%)",
+                        "default": 0.025
+                    },
+                    "wacc_override": {
+                        "type": "number",
+                        "description": "Optional WACC override (as decimal, e.g., 0.10 for 10%)"
+                    }
+                },
+                "required": ["ticker"]
+            }
+        }
     }
 ]
 
@@ -428,6 +471,8 @@ class ToolExecutor:
                 return ToolExecutor._manage_watchlist(**arguments)
             elif tool_name == "get_ownership_intel":
                 return ToolExecutor._get_ownership_intel(**arguments)
+            elif tool_name == "run_dcf_analysis":
+                return ToolExecutor._run_dcf_analysis(**arguments)
             else:
                 return {"error": f"Unknown tool: {tool_name}"}
         except Exception as e:
@@ -1079,6 +1124,114 @@ TOP 5 INSTITUTIONAL HOLDERS:
                     OwnershipCharts.ownership_comparison_chart(all_tickers, tmp_path)
                 else:
                     OwnershipCharts.ownership_pie_chart(ticker, tmp_path)
+                
+                with open(tmp_path, 'rb') as f:
+                    img_data = base64.b64encode(f.read()).decode()
+                
+                os.unlink(tmp_path)
+                
+                result["image_base64"] = img_data
+                result["has_image"] = True
+            
+            return result
+            
+        except Exception as e:
+            return {"error": str(e)}
+    
+    @staticmethod
+    def _run_dcf_analysis(
+        ticker: str,
+        include_chart: bool = True,
+        chart_type: str = "waterfall",
+        revenue_growth_override: List[float] = None,
+        terminal_growth: float = 0.025,
+        wacc_override: float = None
+    ) -> Dict[str, Any]:
+        """Run DCF valuation analysis"""
+        try:
+            # Get full DCF analysis
+            dcf = DCFModel.calculate_dcf(
+                ticker,
+                projection_years=5,
+                revenue_growth_rates=revenue_growth_override,
+                terminal_growth_rate=terminal_growth,
+                wacc_override=wacc_override
+            )
+            
+            if "error" in dcf:
+                return dcf
+            
+            v = dcf["valuation"]
+            a = dcf["assumptions"]
+            w = dcf["wacc_components"]
+            
+            # Format summary for AI
+            summary_text = f"""
+DCF VALUATION FOR {ticker.upper()}
+{'='*50}
+
+COMPANY: {dcf.get('company_name', ticker)}
+VALUATION DATE: {dcf.get('valuation_date', 'N/A')}
+
+KEY ASSUMPTIONS:
+├── Projection Period: {a['projection_years']} years
+├── Revenue Growth Rates: {' → '.join([f"{g}%" for g in a['revenue_growth_rates']])}
+├── Operating Margins: {' → '.join([f"{m}%" for m in a['operating_margins']])}
+├── WACC: {a['wacc']}%
+│   ├── Cost of Equity: {w['cost_of_equity']}% (Beta: {w['beta']})
+│   ├── Cost of Debt (pre-tax): {w['cost_of_debt']}%
+│   └── Cost of Debt (after-tax): {w['cost_of_debt_after_tax']}%
+├── Terminal Growth Rate: {a['terminal_growth_rate']}%
+├── Risk-Free Rate: {w['risk_free_rate']}%
+└── Market Risk Premium: {w['market_risk_premium']}%
+
+CAPITAL STRUCTURE:
+├── Equity Weight: {w['equity_weight']}%
+├── Debt Weight: {w['debt_weight']}%
+├── Market Cap: ${w['market_cap']/1e9:.1f}B
+└── Total Debt: ${w['total_debt']/1e9:.1f}B
+
+VALUATION BREAKDOWN:
+├── PV of FCFs (Years 1-5): ${v['pv_of_fcfs']}B
+├── PV of Terminal Value: ${v['pv_of_terminal_value']}B
+├── Enterprise Value: ${v['enterprise_value']}B
+├── Less: Net Debt: ${v['net_debt']}B
+├── Equity Value: ${v['equity_value']}B
+├── Shares Outstanding: {v['shares_outstanding']}B
+└── INTRINSIC VALUE: ${v['intrinsic_value_per_share']}/share
+
+INVESTMENT VERDICT:
+├── Current Market Price: ${v['current_price']}
+├── Upside/Downside: {v['upside_percent']:+.1f}%
+└── Valuation Status: {v['valuation_status']}
+"""
+            
+            result = {
+                "ticker": ticker,
+                "summary": summary_text,
+                "intrinsic_value": v['intrinsic_value_per_share'],
+                "current_price": v['current_price'],
+                "upside_percent": v['upside_percent'],
+                "valuation_status": v['valuation_status'],
+                "wacc": a['wacc'],
+                "terminal_growth": a['terminal_growth_rate'],
+                "enterprise_value_billions": v['enterprise_value'],
+                "equity_value_billions": v['equity_value']
+            }
+            
+            # Generate chart if requested
+            if include_chart:
+                with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
+                    tmp_path = tmp.name
+                
+                if chart_type == "projection":
+                    DCFCharts.projection_chart(ticker, tmp_path)
+                elif chart_type == "sensitivity":
+                    DCFCharts.sensitivity_heatmap(ticker, tmp_path)
+                elif chart_type == "waterfall":
+                    DCFCharts.valuation_waterfall(ticker, tmp_path)
+                else:
+                    DCFCharts.valuation_waterfall(ticker, tmp_path)
                 
                 with open(tmp_path, 'rb') as f:
                     img_data = base64.b64encode(f.read()).decode()

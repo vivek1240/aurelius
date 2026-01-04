@@ -444,7 +444,7 @@ with st.sidebar:
     st.markdown("<p style='color: #a0a0a8; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.75rem; font-weight: 600;'>Navigation</p>", unsafe_allow_html=True)
     page = st.radio(
         "Navigation",
-        ["🤖 AI Command Center", "🎛️ Command Deck", "🔬 Deep Scan", "🏛️ The Vault", "📈 Earnings Intel", "📊 Comparator", "📌 Watchlist", "🏦 Ownership", "📡 Signal Wire", "🔮 The Oracle", "⚔️ Backtest Arena", "📑 Report Forge", "📱 Social Pulse", "📚 Research Library"],
+        ["🤖 AI Command Center", "🎛️ Command Deck", "🔬 Deep Scan", "🏛️ The Vault", "📈 Earnings Intel", "📊 Comparator", "📌 Watchlist", "🏦 Ownership", "💰 Valuation", "📡 Signal Wire", "🔮 The Oracle", "⚔️ Backtest Arena", "📑 Report Forge", "📱 Social Pulse", "📚 Research Library"],
         label_visibility="collapsed"
     )
     
@@ -509,6 +509,7 @@ if page == "🤖 AI Command Center":
         | 📈 **Earnings Intel** | EPS history, beat rates, analyst estimates, next earnings | *"Show earnings for NVDA"* |
         | 🏦 **Ownership Intel** | Institutional holders, insider activity, ownership breakdown | *"Who owns NVDA?"* |
         | 📌 **Watchlist** | Add/remove stocks, view watchlist, save research notes | *"Add NVDA to watchlist"* |
+        | 💰 **DCF Valuation** | Intrinsic value, WACC, terminal value, sensitivity analysis | *"Run DCF on AAPL"* |
         """)
     
     st.divider()
@@ -572,6 +573,21 @@ if page == "🤖 AI Command Center":
     with col9:
         if st.button("📋 My Watchlist", use_container_width=True):
             st.session_state.pending_prompt = "Show me my watchlist"
+            st.rerun()
+    
+    # DCF quick actions
+    col10, col11, col12 = st.columns(3)
+    with col10:
+        if st.button("💰 AAPL DCF", use_container_width=True):
+            st.session_state.pending_prompt = "Run a DCF valuation for AAPL and show me the intrinsic value"
+            st.rerun()
+    with col11:
+        if st.button("💰 NVDA DCF", use_container_width=True):
+            st.session_state.pending_prompt = "What's the intrinsic value of NVDA based on DCF analysis?"
+            st.rerun()
+    with col12:
+        if st.button("📊 MSFT Sensitivity", use_container_width=True):
+            st.session_state.pending_prompt = "Show me sensitivity analysis for MSFT DCF valuation"
             st.rerun()
     
     # User input
@@ -2234,6 +2250,250 @@ elif page == "🏦 Ownership":
         - Ask "Show me the ownership breakdown for NVDA" in the AI Command Center
         - Request "Who are the top institutional holders of AAPL?"
         - Say "Compare ownership of NVDA, AMD, and INTC"
+        """)
+
+elif page == "💰 Valuation":
+    from aurelius.functional.dcf import DCFModel
+    from aurelius.functional.charting import DCFCharts
+    import tempfile
+    
+    st.title("💰 DCF Valuation Model")
+    st.caption("Discounted Cash Flow analysis to estimate intrinsic value per share")
+    
+    st.divider()
+    
+    # Tabs for different views
+    val_tab1, val_tab2, val_tab3 = st.tabs(["📊 Quick DCF", "🎛️ Custom Model", "📉 Sensitivity"])
+    
+    with val_tab1:
+        st.markdown("### One-Click DCF Valuation")
+        st.markdown("Get an instant DCF valuation using automatically calculated assumptions based on historical data.")
+        
+        if st.button("🚀 Run DCF Analysis", key="quick_dcf", use_container_width=True):
+            with st.spinner("Running DCF analysis..."):
+                dcf_result = DCFModel.calculate_dcf(ticker)
+                
+                if "error" in dcf_result:
+                    st.error(f"Error: {dcf_result['error']}")
+                else:
+                    v = dcf_result["valuation"]
+                    a = dcf_result["assumptions"]
+                    w = dcf_result["wacc_components"]
+                    
+                    # Key Result Card
+                    valuation_color = "#00c896" if v["upside_percent"] > 0 else "#ff4757"
+                    st.markdown(f"""
+                    <div style="
+                        background: linear-gradient(135deg, rgba(212, 175, 55, 0.1) 0%, rgba(13, 13, 18, 0.9) 100%);
+                        border: 1px solid {valuation_color};
+                        border-radius: 16px;
+                        padding: 2rem;
+                        text-align: center;
+                        margin-bottom: 1.5rem;
+                    ">
+                        <p style="color: #a0a0a8; font-size: 0.9rem; margin-bottom: 0.5rem;">INTRINSIC VALUE</p>
+                        <h1 style="color: #d4af37; font-size: 3.5rem; margin: 0; font-weight: 700;">${v['intrinsic_value_per_share']:.2f}</h1>
+                        <p style="color: #a0a0a8; font-size: 1rem; margin-top: 0.5rem;">
+                            Current Price: <span style="color: white; font-weight: 600;">${v['current_price']:.2f}</span>
+                        </p>
+                        <p style="
+                            color: {valuation_color}; 
+                            font-size: 1.5rem; 
+                            font-weight: 700;
+                            margin-top: 1rem;
+                            padding: 0.5rem 1rem;
+                            background: rgba(0, 0, 0, 0.3);
+                            border-radius: 8px;
+                            display: inline-block;
+                        ">
+                            {v['upside_percent']:+.1f}% • {v['valuation_status']}
+                        </p>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    # Metrics Row
+                    col1, col2, col3, col4 = st.columns(4)
+                    with col1:
+                        st.metric("Enterprise Value", f"${v['enterprise_value']:.1f}B")
+                    with col2:
+                        st.metric("Equity Value", f"${v['equity_value']:.1f}B")
+                    with col3:
+                        st.metric("WACC", f"{a['wacc']}%")
+                    with col4:
+                        st.metric("Terminal Growth", f"{a['terminal_growth_rate']}%")
+                    
+                    st.divider()
+                    
+                    # Charts
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        st.markdown("#### 📊 Valuation Waterfall")
+                        with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
+                            DCFCharts.valuation_waterfall(ticker, tmp.name)
+                            st.image(tmp.name)
+                    
+                    with col2:
+                        st.markdown("#### 📈 FCF Projections")
+                        with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
+                            DCFCharts.projection_chart(ticker, tmp.name)
+                            st.image(tmp.name)
+                    
+                    # Assumptions Breakdown
+                    st.markdown("### 📋 Key Assumptions")
+                    
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        st.markdown("**Revenue Growth (5-Year)**")
+                        growth_df_data = {
+                            "Year": [f"Year {i+1}" for i in range(5)],
+                            "Growth Rate": [f"{g}%" for g in a['revenue_growth_rates']]
+                        }
+                        st.dataframe(growth_df_data, use_container_width=True, hide_index=True)
+                    
+                    with col2:
+                        st.markdown("**WACC Components**")
+                        wacc_data = {
+                            "Component": ["Cost of Equity", "Cost of Debt (after-tax)", "Equity Weight", "Debt Weight", "Beta"],
+                            "Value": [f"{w['cost_of_equity']}%", f"{w['cost_of_debt_after_tax']}%", 
+                                     f"{w['equity_weight']}%", f"{w['debt_weight']}%", f"{w['beta']}"]
+                        }
+                        st.dataframe(wacc_data, use_container_width=True, hide_index=True)
+    
+    with val_tab2:
+        st.markdown("### Custom DCF Model")
+        st.markdown("Adjust assumptions to run your own DCF scenario.")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("**Revenue Growth Assumptions**")
+            y1_growth = st.slider("Year 1 Growth %", -20, 50, 15, key="y1g")
+            y2_growth = st.slider("Year 2 Growth %", -20, 50, 12, key="y2g")
+            y3_growth = st.slider("Year 3 Growth %", -20, 50, 10, key="y3g")
+            y4_growth = st.slider("Year 4 Growth %", -20, 50, 8, key="y4g")
+            y5_growth = st.slider("Year 5 Growth %", -20, 50, 6, key="y5g")
+        
+        with col2:
+            st.markdown("**Discount Rate & Terminal Value**")
+            custom_wacc = st.slider("WACC Override %", 5.0, 20.0, 10.0, 0.5, key="cwacc")
+            custom_terminal = st.slider("Terminal Growth %", 0.0, 5.0, 2.5, 0.5, key="ctg")
+        
+        if st.button("🧮 Calculate Custom DCF", use_container_width=True, key="custom_dcf"):
+            with st.spinner("Calculating custom DCF..."):
+                custom_growth = [y1_growth/100, y2_growth/100, y3_growth/100, y4_growth/100, y5_growth/100]
+                
+                dcf_result = DCFModel.calculate_dcf(
+                    ticker,
+                    projection_years=5,
+                    revenue_growth_rates=custom_growth,
+                    terminal_growth_rate=custom_terminal/100,
+                    wacc_override=custom_wacc/100
+                )
+                
+                if "error" in dcf_result:
+                    st.error(f"Error: {dcf_result['error']}")
+                else:
+                    v = dcf_result["valuation"]
+                    
+                    # Result
+                    valuation_color = "#00c896" if v["upside_percent"] > 0 else "#ff4757"
+                    
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("Intrinsic Value", f"${v['intrinsic_value_per_share']:.2f}")
+                    with col2:
+                        st.metric("Current Price", f"${v['current_price']:.2f}")
+                    with col3:
+                        st.metric("Upside/Downside", f"{v['upside_percent']:+.1f}%", 
+                                 delta=v['valuation_status'], delta_color="normal" if v["upside_percent"] > 0 else "inverse")
+                    
+                    # Waterfall Chart
+                    with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
+                        DCFCharts.valuation_waterfall(ticker, tmp.name)
+                        st.image(tmp.name)
+    
+    with val_tab3:
+        st.markdown("### Sensitivity Analysis")
+        st.markdown("See how intrinsic value changes with different WACC and terminal growth assumptions.")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            wacc_min = st.number_input("WACC Min %", 5.0, 15.0, 8.0, 0.5)
+            wacc_max = st.number_input("WACC Max %", 8.0, 20.0, 14.0, 0.5)
+        with col2:
+            growth_min = st.number_input("Terminal Growth Min %", 0.0, 3.0, 1.5, 0.5)
+            growth_max = st.number_input("Terminal Growth Max %", 2.0, 5.0, 4.0, 0.5)
+        
+        if st.button("📊 Generate Sensitivity Matrix", use_container_width=True, key="sens_matrix"):
+            with st.spinner("Generating sensitivity analysis..."):
+                sensitivity = DCFModel.sensitivity_analysis(
+                    ticker,
+                    wacc_range=(wacc_min/100, wacc_max/100),
+                    growth_range=(growth_min/100, growth_max/100),
+                    steps=5
+                )
+                
+                if "error" in sensitivity:
+                    st.error(f"Error: {sensitivity['error']}")
+                else:
+                    st.markdown(f"**Current Price: ${sensitivity['current_price']:.2f}**")
+                    
+                    # Heatmap
+                    with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
+                        DCFCharts.sensitivity_heatmap(ticker, tmp.name)
+                        st.image(tmp.name)
+                    
+                    # Matrix Table
+                    st.markdown("#### 📋 Value Matrix ($/share)")
+                    
+                    # Build dataframe
+                    import pandas as pd
+                    matrix_df = pd.DataFrame(
+                        sensitivity["matrix"],
+                        index=sensitivity["wacc_values"],
+                        columns=sensitivity["growth_values"]
+                    )
+                    matrix_df.index.name = "WACC \\ Growth"
+                    
+                    st.dataframe(matrix_df, use_container_width=True)
+                    
+                    # Interpretation
+                    st.info("""
+                    **How to Read:**
+                    - 🟢 Green cells = Stock appears undervalued at those assumptions
+                    - 🔴 Red cells = Stock appears overvalued at those assumptions
+                    - Higher WACC = Lower intrinsic value (future cash flows worth less)
+                    - Higher Terminal Growth = Higher intrinsic value (more long-term value)
+                    """)
+    
+    # Tips Section
+    with st.expander("💡 DCF Model Guide"):
+        st.markdown("""
+        ### Understanding DCF Valuation
+        
+        **Key Concepts:**
+        1. **Free Cash Flow (FCF):** Cash available after operations and capital expenditures
+        2. **WACC:** Weighted Average Cost of Capital - the discount rate reflecting risk
+        3. **Terminal Value:** Value of all cash flows beyond the projection period
+        4. **Present Value:** Future cash flows discounted back to today
+        
+        **WACC Components:**
+        - Cost of Equity = Risk-Free Rate + Beta × Market Risk Premium
+        - Cost of Debt = Interest Rate × (1 - Tax Rate)
+        - Weighted by market value of equity and debt
+        
+        **Limitations:**
+        - Very sensitive to growth and discount rate assumptions
+        - Terminal value often dominates the result (60-80% of value)
+        - Historical data may not predict future performance
+        - Works best for stable, cash-generating businesses
+        
+        **AI Integration:**
+        - Ask "Run a DCF analysis on AAPL" in the AI Command Center
+        - Request "What's the intrinsic value of NVDA based on DCF?"
+        - Say "Show me sensitivity analysis for MSFT valuation"
         """)
 
 elif page == "📡 Signal Wire":

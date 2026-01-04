@@ -1,5 +1,5 @@
 from .analyzer import ReportAnalysisUtils
-from .charting import MplFinanceUtils, ReportChartUtils, ComparisonCharts, EarningsCharts, OwnershipCharts
+from .charting import MplFinanceUtils, ReportChartUtils, ComparisonCharts, EarningsCharts, OwnershipCharts, DCFCharts
 from .coding import CodingUtils, IPythonUtils
 from .quantitative import BackTraderUtils
 from .reportlab import ReportLabUtils
@@ -8,4 +8,5 @@ from .rag import get_rag_function
 from .comparison import StockComparator
 from .earnings import EarningsIntel
 from .ownership import OwnershipIntel
+from .dcf import DCFModel
 from .storage import WatchlistManager, ResearchManager, AlertManager, get_watchlist_manager, get_research_manager

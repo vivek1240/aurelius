@@ -1149,6 +1149,281 @@ class OwnershipCharts:
         return f"Ownership comparison chart saved to <img {save_path}>"
 
 
+class DCFCharts:
+    """Charts for DCF valuation visualization"""
+    
+    @staticmethod
+    def projection_chart(
+        ticker: str,
+        save_path: str = None
+    ) -> str:
+        """
+        Create revenue and FCF projection chart
+        
+        Args:
+            ticker: Stock ticker symbol
+            save_path: Path to save the chart
+        
+        Returns:
+            Path to saved chart
+        """
+        from .dcf import DCFModel
+        
+        # Get historical and projected data
+        historical = DCFModel.get_historical_financials(ticker, 3)
+        projections = DCFModel.project_financials(ticker, 5)
+        
+        if "error" in historical or "error" in projections:
+            return "Error getting data for projection chart"
+        
+        # Setup plot
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 7))
+        fig.patch.set_facecolor('#0d0d12')
+        
+        # Prepare data
+        hist_years = historical["years"][::-1]  # Reverse to chronological
+        hist_revenue = [r/1e9 for r in historical["revenue"][::-1]]  # In billions
+        hist_fcf = [f/1e9 for f in historical["free_cash_flow"][::-1]]
+        
+        proj_years = projections["years"]
+        proj_revenue = [r/1e9 for r in projections["revenue"]]
+        proj_fcf = [f/1e9 for f in projections["free_cash_flow"]]
+        
+        all_years = hist_years + proj_years
+        all_revenue = hist_revenue + proj_revenue
+        all_fcf = hist_fcf + proj_fcf
+        
+        x = np.arange(len(all_years))
+        hist_len = len(hist_years)
+        
+        # Left chart: Revenue
+        ax1.set_facecolor('#0d0d12')
+        colors1 = ['#d4af37'] * hist_len + ['#d4af37'] * len(proj_years)
+        alphas1 = [0.9] * hist_len + [0.5] * len(proj_years)
+        
+        bars1 = ax1.bar(x[:hist_len], all_revenue[:hist_len], color='#d4af37', alpha=0.9, label='Historical')
+        bars2 = ax1.bar(x[hist_len:], all_revenue[hist_len:], color='#d4af37', alpha=0.5, label='Projected', hatch='//')
+        
+        # Add growth rate labels
+        for i in range(1, len(all_revenue)):
+            if all_revenue[i-1] > 0:
+                growth = ((all_revenue[i] - all_revenue[i-1]) / all_revenue[i-1]) * 100
+                ax1.annotate(f'{growth:+.0f}%', (x[i], all_revenue[i] + 2), 
+                            ha='center', va='bottom', color='#00c896', fontsize=8)
+        
+        ax1.set_ylabel('Revenue ($B)', color='#a0a0a8', fontsize=12)
+        ax1.set_title(f'{ticker} Revenue Projections', fontsize=14, color='white', fontweight='bold')
+        ax1.set_xticks(x)
+        ax1.set_xticklabels(all_years, rotation=45, ha='right')
+        ax1.tick_params(colors='#a0a0a8')
+        ax1.axvline(x=hist_len - 0.5, color='white', linestyle='--', alpha=0.3)
+        ax1.spines['bottom'].set_color('#333')
+        ax1.spines['top'].set_visible(False)
+        ax1.spines['right'].set_visible(False)
+        ax1.spines['left'].set_color('#333')
+        ax1.grid(True, alpha=0.1, color='white', axis='y')
+        ax1.legend(loc='upper left', facecolor='#1a1a24', edgecolor='#333', labelcolor='white')
+        
+        # Right chart: Free Cash Flow
+        ax2.set_facecolor('#0d0d12')
+        bars3 = ax2.bar(x[:hist_len], all_fcf[:hist_len], color='#00c896', alpha=0.9, label='Historical')
+        bars4 = ax2.bar(x[hist_len:], all_fcf[hist_len:], color='#00c896', alpha=0.5, label='Projected', hatch='//')
+        
+        ax2.set_ylabel('Free Cash Flow ($B)', color='#a0a0a8', fontsize=12)
+        ax2.set_title(f'{ticker} FCF Projections', fontsize=14, color='white', fontweight='bold')
+        ax2.set_xticks(x)
+        ax2.set_xticklabels(all_years, rotation=45, ha='right')
+        ax2.tick_params(colors='#a0a0a8')
+        ax2.axvline(x=hist_len - 0.5, color='white', linestyle='--', alpha=0.3)
+        ax2.spines['bottom'].set_color('#333')
+        ax2.spines['top'].set_visible(False)
+        ax2.spines['right'].set_visible(False)
+        ax2.spines['left'].set_color('#333')
+        ax2.grid(True, alpha=0.1, color='white', axis='y')
+        ax2.legend(loc='upper left', facecolor='#1a1a24', edgecolor='#333', labelcolor='white')
+        
+        plt.suptitle(f'{ticker} - DCF Projection Chart', fontsize=16, color='white', fontweight='bold', y=1.02)
+        plt.tight_layout()
+        
+        if save_path:
+            plt.savefig(save_path, facecolor='#0d0d12', edgecolor='none', 
+                        bbox_inches='tight', dpi=150)
+        plt.close()
+        
+        return f"DCF projection chart saved to <img {save_path}>"
+    
+    @staticmethod
+    def sensitivity_heatmap(
+        ticker: str,
+        save_path: str = None
+    ) -> str:
+        """
+        Create sensitivity analysis heatmap
+        
+        Args:
+            ticker: Stock ticker symbol
+            save_path: Path to save the chart
+        
+        Returns:
+            Path to saved chart
+        """
+        from .dcf import DCFModel
+        
+        # Get sensitivity data
+        sensitivity = DCFModel.sensitivity_analysis(ticker)
+        
+        if "error" in sensitivity:
+            return f"Error creating sensitivity heatmap: {sensitivity['error']}"
+        
+        matrix = np.array(sensitivity["matrix"])
+        current_price = sensitivity["current_price"]
+        wacc_labels = sensitivity["wacc_values"]
+        growth_labels = sensitivity["growth_values"]
+        
+        # Setup plot
+        fig, ax = plt.subplots(figsize=(10, 8))
+        fig.patch.set_facecolor('#0d0d12')
+        ax.set_facecolor('#0d0d12')
+        
+        # Create heatmap
+        # Color scale: green for values > current_price, red for values < current_price
+        norm_matrix = (matrix - current_price) / current_price
+        
+        # Custom colormap
+        from matplotlib.colors import LinearSegmentedColormap
+        colors_list = ['#ff4757', '#2d2d3a', '#00c896']
+        cmap = LinearSegmentedColormap.from_list('dcf', colors_list)
+        
+        im = ax.imshow(norm_matrix, cmap=cmap, aspect='auto', vmin=-0.5, vmax=0.5)
+        
+        # Add value annotations
+        for i in range(len(wacc_labels)):
+            for j in range(len(growth_labels)):
+                val = matrix[i][j]
+                text_color = 'white' if abs(val - current_price) / current_price > 0.2 else '#a0a0a8'
+                ax.text(j, i, f'${val:.0f}', ha='center', va='center', 
+                       color=text_color, fontsize=10, fontweight='bold')
+        
+        # Labels
+        ax.set_xticks(np.arange(len(growth_labels)))
+        ax.set_yticks(np.arange(len(wacc_labels)))
+        ax.set_xticklabels(growth_labels, color='#a0a0a8')
+        ax.set_yticklabels(wacc_labels, color='#a0a0a8')
+        ax.set_xlabel('Terminal Growth Rate', color='#a0a0a8', fontsize=12)
+        ax.set_ylabel('WACC', color='#a0a0a8', fontsize=12)
+        
+        ax.set_title(f'{ticker} DCF Sensitivity Analysis\nCurrent Price: ${current_price:.2f}', 
+                     fontsize=14, color='white', fontweight='bold', pad=20)
+        
+        # Colorbar
+        cbar = plt.colorbar(im, ax=ax)
+        cbar.set_label('vs Current Price', color='#a0a0a8')
+        cbar.ax.yaxis.set_tick_params(color='#a0a0a8')
+        plt.setp(plt.getp(cbar.ax.axes, 'yticklabels'), color='#a0a0a8')
+        
+        plt.tight_layout()
+        
+        if save_path:
+            plt.savefig(save_path, facecolor='#0d0d12', edgecolor='none', 
+                        bbox_inches='tight', dpi=150)
+        plt.close()
+        
+        return f"Sensitivity heatmap saved to <img {save_path}>"
+    
+    @staticmethod
+    def valuation_waterfall(
+        ticker: str,
+        save_path: str = None
+    ) -> str:
+        """
+        Create valuation waterfall chart
+        
+        Args:
+            ticker: Stock ticker symbol
+            save_path: Path to save the chart
+        
+        Returns:
+            Path to saved chart
+        """
+        from .dcf import DCFModel
+        
+        # Get DCF data
+        dcf = DCFModel.calculate_dcf(ticker)
+        
+        if "error" in dcf:
+            return f"Error creating waterfall chart: {dcf['error']}"
+        
+        v = dcf["valuation"]
+        
+        # Waterfall data
+        labels = ['PV of FCFs', 'PV of Terminal\nValue', 'Enterprise\nValue', 'Less: Net Debt', 'Equity Value']
+        values = [v['pv_of_fcfs'], v['pv_of_terminal_value'], 0, -v['net_debt'], 0]
+        cumulative = [v['pv_of_fcfs'], v['pv_of_fcfs'] + v['pv_of_terminal_value'], 
+                     v['enterprise_value'], v['enterprise_value'] - v['net_debt'], v['equity_value']]
+        
+        # Setup plot
+        fig, ax = plt.subplots(figsize=(12, 7))
+        fig.patch.set_facecolor('#0d0d12')
+        ax.set_facecolor('#0d0d12')
+        
+        colors = ['#d4af37', '#d4af37', '#6366f1', '#ff4757' if v['net_debt'] > 0 else '#00c896', '#00c896']
+        
+        # Create waterfall
+        x = np.arange(len(labels))
+        bar_width = 0.6
+        
+        # Starting positions for bars
+        bottoms = [0, v['pv_of_fcfs'], 0, v['enterprise_value'], 0]
+        heights = [v['pv_of_fcfs'], v['pv_of_terminal_value'], v['enterprise_value'], 
+                   abs(v['net_debt']), v['equity_value']]
+        
+        bars = ax.bar(x, heights, bar_width, bottom=bottoms, color=colors, alpha=0.9)
+        
+        # Add value labels
+        for i, (bar, val) in enumerate(zip(bars, heights)):
+            height = bar.get_height()
+            bottom = bar.get_y()
+            ax.text(bar.get_x() + bar.get_width()/2, bottom + height/2, 
+                   f'${val:.1f}B', ha='center', va='center', 
+                   color='white', fontsize=11, fontweight='bold')
+        
+        # Connect lines
+        for i in range(len(x) - 1):
+            if i != 2:  # Skip the EV bar connection
+                ax.plot([x[i] + bar_width/2, x[i+1] - bar_width/2], 
+                       [cumulative[i], cumulative[i]], color='white', linestyle='--', alpha=0.3)
+        
+        ax.set_xticks(x)
+        ax.set_xticklabels(labels, color='#a0a0a8', fontsize=10)
+        ax.set_ylabel('Value ($B)', color='#a0a0a8', fontsize=12)
+        ax.tick_params(colors='#a0a0a8')
+        ax.spines['bottom'].set_color('#333')
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.spines['left'].set_color('#333')
+        ax.grid(True, alpha=0.1, color='white', axis='y')
+        
+        # Add intrinsic value annotation
+        ax.annotate(f'Intrinsic Value: ${v["intrinsic_value_per_share"]:.2f}/share\n'
+                   f'Current: ${v["current_price"]:.2f} ({v["upside_percent"]:+.1f}%)',
+                   xy=(4, v['equity_value']), xytext=(3.5, v['equity_value'] * 0.7),
+                   fontsize=12, color='white', fontweight='bold',
+                   bbox=dict(boxstyle='round', facecolor='#1a1a24', edgecolor='#333'),
+                   arrowprops=dict(arrowstyle='->', color='white', alpha=0.5))
+        
+        ax.set_title(f'{ticker} - DCF Valuation Waterfall', 
+                     fontsize=16, color='white', fontweight='bold', pad=20)
+        
+        plt.tight_layout()
+        
+        if save_path:
+            plt.savefig(save_path, facecolor='#0d0d12', edgecolor='none', 
+                        bbox_inches='tight', dpi=150)
+        plt.close()
+        
+        return f"Valuation waterfall chart saved to <img {save_path}>"
+
+
 if __name__ == "__main__":
     # Example usage:
     start_date = "2024-03-01"
