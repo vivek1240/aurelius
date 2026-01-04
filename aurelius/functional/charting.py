@@ -1424,6 +1424,314 @@ class DCFCharts:
         return f"Valuation waterfall chart saved to <img {save_path}>"
 
 
+class RiskCharts:
+    """Charts for Risk Analytics visualization"""
+    
+    @staticmethod
+    def var_distribution_chart(
+        ticker: str,
+        save_path: str = None
+    ) -> str:
+        """
+        Create Value at Risk distribution chart
+        
+        Args:
+            ticker: Stock ticker symbol
+            save_path: Path to save the chart
+        
+        Returns:
+            Path to saved chart
+        """
+        from .risk import RiskAnalytics
+        
+        returns = RiskAnalytics.get_returns(ticker, "1y")
+        
+        if returns.empty:
+            return "Error: No data available"
+        
+        var_95 = np.percentile(returns, 5)
+        var_99 = np.percentile(returns, 1)
+        
+        fig, ax = plt.subplots(figsize=(12, 7))
+        fig.patch.set_facecolor('#0d0d12')
+        ax.set_facecolor('#0d0d12')
+        
+        # Histogram
+        n, bins, patches = ax.hist(returns * 100, bins=50, density=True, 
+                                    alpha=0.7, color='#d4af37', edgecolor='none')
+        
+        # Color the VaR region
+        for patch, left_edge in zip(patches, bins[:-1]):
+            if left_edge < var_95 * 100:
+                patch.set_facecolor('#ff4757')
+                patch.set_alpha(0.8)
+        
+        # Add VaR lines
+        ax.axvline(x=var_95 * 100, color='#ff6b6b', linestyle='--', linewidth=2, 
+                   label=f'95% VaR: {abs(var_95)*100:.2f}%')
+        ax.axvline(x=var_99 * 100, color='#ff0000', linestyle='--', linewidth=2, 
+                   label=f'99% VaR: {abs(var_99)*100:.2f}%')
+        ax.axvline(x=0, color='white', linestyle='-', linewidth=1, alpha=0.5)
+        
+        # Labels
+        ax.set_xlabel('Daily Return (%)', color='#a0a0a8', fontsize=12)
+        ax.set_ylabel('Density', color='#a0a0a8', fontsize=12)
+        ax.set_title(f'{ticker} - Return Distribution & Value at Risk', 
+                     fontsize=16, color='white', fontweight='bold', pad=20)
+        
+        ax.tick_params(colors='#a0a0a8')
+        ax.spines['bottom'].set_color('#333')
+        ax.spines['left'].set_color('#333')
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.legend(loc='upper right', facecolor='#1a1a24', edgecolor='#333', labelcolor='white')
+        ax.grid(True, alpha=0.1, color='white')
+        
+        plt.tight_layout()
+        
+        if save_path:
+            plt.savefig(save_path, facecolor='#0d0d12', edgecolor='none', 
+                        bbox_inches='tight', dpi=150)
+        plt.close()
+        
+        return f"VaR distribution chart saved to <img {save_path}>"
+    
+    @staticmethod
+    def drawdown_chart(
+        ticker: str,
+        period: str = "1y",
+        save_path: str = None
+    ) -> str:
+        """
+        Create drawdown chart
+        
+        Args:
+            ticker: Stock ticker symbol
+            period: Time period
+            save_path: Path to save the chart
+        
+        Returns:
+            Path to saved chart
+        """
+        import yfinance as yf
+        
+        stock = yf.Ticker(ticker)
+        hist = stock.history(period=period)
+        
+        if hist.empty:
+            return "Error: No data available"
+        
+        prices = hist['Close']
+        running_max = prices.cummax()
+        drawdown = (prices - running_max) / running_max * 100
+        
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(14, 10), height_ratios=[2, 1])
+        fig.patch.set_facecolor('#0d0d12')
+        
+        # Price chart
+        ax1.set_facecolor('#0d0d12')
+        ax1.plot(prices.index, prices, color='#d4af37', linewidth=1.5, label='Price')
+        ax1.plot(running_max.index, running_max, color='#00c896', linewidth=1, 
+                 linestyle='--', alpha=0.5, label='Running Max')
+        ax1.fill_between(prices.index, prices, running_max, alpha=0.2, color='#ff4757')
+        
+        ax1.set_ylabel('Price ($)', color='#a0a0a8', fontsize=12)
+        ax1.tick_params(colors='#a0a0a8')
+        ax1.spines['bottom'].set_color('#333')
+        ax1.spines['left'].set_color('#333')
+        ax1.spines['top'].set_visible(False)
+        ax1.spines['right'].set_visible(False)
+        ax1.legend(loc='upper left', facecolor='#1a1a24', edgecolor='#333', labelcolor='white')
+        ax1.grid(True, alpha=0.1, color='white')
+        ax1.set_title(f'{ticker} - Price & Drawdown Analysis ({period})', 
+                      fontsize=16, color='white', fontweight='bold', pad=20)
+        
+        # Drawdown chart
+        ax2.set_facecolor('#0d0d12')
+        ax2.fill_between(drawdown.index, 0, drawdown, color='#ff4757', alpha=0.6)
+        ax2.plot(drawdown.index, drawdown, color='#ff6b6b', linewidth=1)
+        
+        # Mark max drawdown
+        max_dd_idx = drawdown.idxmin()
+        max_dd_val = drawdown.min()
+        ax2.scatter([max_dd_idx], [max_dd_val], color='#ff0000', s=100, zorder=5)
+        ax2.annotate(f'Max: {max_dd_val:.1f}%', xy=(max_dd_idx, max_dd_val), 
+                     xytext=(max_dd_idx, max_dd_val - 5),
+                     color='white', fontsize=10, ha='center',
+                     bbox=dict(boxstyle='round', facecolor='#1a1a24', edgecolor='#ff4757'))
+        
+        ax2.axhline(y=0, color='white', linestyle='-', linewidth=0.5, alpha=0.3)
+        ax2.set_ylabel('Drawdown (%)', color='#a0a0a8', fontsize=12)
+        ax2.set_xlabel('Date', color='#a0a0a8', fontsize=12)
+        ax2.tick_params(colors='#a0a0a8')
+        ax2.spines['bottom'].set_color('#333')
+        ax2.spines['left'].set_color('#333')
+        ax2.spines['top'].set_visible(False)
+        ax2.spines['right'].set_visible(False)
+        ax2.grid(True, alpha=0.1, color='white')
+        
+        plt.tight_layout()
+        
+        if save_path:
+            plt.savefig(save_path, facecolor='#0d0d12', edgecolor='none', 
+                        bbox_inches='tight', dpi=150)
+        plt.close()
+        
+        return f"Drawdown chart saved to <img {save_path}>"
+    
+    @staticmethod
+    def rolling_volatility_chart(
+        ticker: str,
+        period: str = "1y",
+        window: int = 30,
+        save_path: str = None
+    ) -> str:
+        """
+        Create rolling volatility chart
+        
+        Args:
+            ticker: Stock ticker symbol
+            period: Time period
+            window: Rolling window days
+            save_path: Path to save the chart
+        
+        Returns:
+            Path to saved chart
+        """
+        from .risk import RiskAnalytics
+        
+        returns = RiskAnalytics.get_returns(ticker, period)
+        
+        if returns.empty:
+            return "Error: No data available"
+        
+        # Annualized rolling volatility
+        rolling_vol = returns.rolling(window=window).std() * np.sqrt(252) * 100
+        
+        fig, ax = plt.subplots(figsize=(14, 7))
+        fig.patch.set_facecolor('#0d0d12')
+        ax.set_facecolor('#0d0d12')
+        
+        # Plot volatility
+        ax.plot(rolling_vol.index, rolling_vol, color='#6366f1', linewidth=1.5)
+        ax.fill_between(rolling_vol.index, 0, rolling_vol, color='#6366f1', alpha=0.2)
+        
+        # Add percentile bands
+        vol_75 = rolling_vol.quantile(0.75)
+        vol_25 = rolling_vol.quantile(0.25)
+        vol_median = rolling_vol.median()
+        
+        ax.axhline(y=vol_75, color='#ff6b6b', linestyle='--', linewidth=1, 
+                   alpha=0.7, label=f'75th percentile: {vol_75:.1f}%')
+        ax.axhline(y=vol_median, color='#d4af37', linestyle='--', linewidth=1, 
+                   alpha=0.7, label=f'Median: {vol_median:.1f}%')
+        ax.axhline(y=vol_25, color='#00c896', linestyle='--', linewidth=1, 
+                   alpha=0.7, label=f'25th percentile: {vol_25:.1f}%')
+        
+        # Current volatility marker
+        current_vol = rolling_vol.iloc[-1]
+        ax.scatter([rolling_vol.index[-1]], [current_vol], color='#d4af37', s=100, zorder=5)
+        ax.annotate(f'Current: {current_vol:.1f}%', 
+                    xy=(rolling_vol.index[-1], current_vol),
+                    xytext=(rolling_vol.index[-1], current_vol + 5),
+                    color='white', fontsize=10, ha='right',
+                    bbox=dict(boxstyle='round', facecolor='#1a1a24', edgecolor='#d4af37'))
+        
+        ax.set_ylabel(f'{window}-Day Rolling Volatility (Annualized %)', color='#a0a0a8', fontsize=12)
+        ax.set_xlabel('Date', color='#a0a0a8', fontsize=12)
+        ax.set_title(f'{ticker} - Rolling Volatility ({period})', 
+                     fontsize=16, color='white', fontweight='bold', pad=20)
+        
+        ax.tick_params(colors='#a0a0a8')
+        ax.spines['bottom'].set_color('#333')
+        ax.spines['left'].set_color('#333')
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.legend(loc='upper left', facecolor='#1a1a24', edgecolor='#333', labelcolor='white')
+        ax.grid(True, alpha=0.1, color='white')
+        ax.set_ylim(bottom=0)
+        
+        plt.tight_layout()
+        
+        if save_path:
+            plt.savefig(save_path, facecolor='#0d0d12', edgecolor='none', 
+                        bbox_inches='tight', dpi=150)
+        plt.close()
+        
+        return f"Rolling volatility chart saved to <img {save_path}>"
+    
+    @staticmethod
+    def correlation_heatmap(
+        tickers: list,
+        period: str = "1y",
+        save_path: str = None
+    ) -> str:
+        """
+        Create correlation heatmap
+        
+        Args:
+            tickers: List of stock ticker symbols
+            period: Time period
+            save_path: Path to save the chart
+        
+        Returns:
+            Path to saved chart
+        """
+        from .risk import RiskAnalytics
+        
+        corr_data = RiskAnalytics.correlation_matrix(tickers, period)
+        
+        if "error" in corr_data:
+            return f"Error: {corr_data['error']}"
+        
+        # Convert matrix dict to DataFrame
+        import pandas as pd
+        corr_matrix = pd.DataFrame(corr_data["matrix"])
+        
+        fig, ax = plt.subplots(figsize=(10, 8))
+        fig.patch.set_facecolor('#0d0d12')
+        ax.set_facecolor('#0d0d12')
+        
+        # Create heatmap
+        from matplotlib.colors import LinearSegmentedColormap
+        colors_list = ['#ff4757', '#2d2d3a', '#00c896']
+        cmap = LinearSegmentedColormap.from_list('corr', colors_list)
+        
+        im = ax.imshow(corr_matrix.values, cmap=cmap, aspect='auto', vmin=-1, vmax=1)
+        
+        # Add value annotations
+        for i in range(len(corr_matrix)):
+            for j in range(len(corr_matrix)):
+                val = corr_matrix.iloc[i, j]
+                text_color = 'white' if abs(val) > 0.5 else '#a0a0a8'
+                ax.text(j, i, f'{val:.2f}', ha='center', va='center', 
+                       color=text_color, fontsize=11, fontweight='bold')
+        
+        # Labels
+        ax.set_xticks(np.arange(len(corr_matrix.columns)))
+        ax.set_yticks(np.arange(len(corr_matrix.index)))
+        ax.set_xticklabels(corr_matrix.columns, color='#a0a0a8', fontsize=10)
+        ax.set_yticklabels(corr_matrix.index, color='#a0a0a8', fontsize=10)
+        
+        ax.set_title(f'Correlation Matrix ({period})', 
+                     fontsize=16, color='white', fontweight='bold', pad=20)
+        
+        # Colorbar
+        cbar = plt.colorbar(im, ax=ax)
+        cbar.set_label('Correlation', color='#a0a0a8')
+        cbar.ax.yaxis.set_tick_params(color='#a0a0a8')
+        plt.setp(plt.getp(cbar.ax.axes, 'yticklabels'), color='#a0a0a8')
+        
+        plt.tight_layout()
+        
+        if save_path:
+            plt.savefig(save_path, facecolor='#0d0d12', edgecolor='none', 
+                        bbox_inches='tight', dpi=150)
+        plt.close()
+        
+        return f"Correlation heatmap saved to <img {save_path}>"
+
+
 if __name__ == "__main__":
     # Example usage:
     start_date = "2024-03-01"

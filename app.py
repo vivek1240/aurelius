@@ -444,7 +444,7 @@ with st.sidebar:
     st.markdown("<p style='color: #a0a0a8; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.75rem; font-weight: 600;'>Navigation</p>", unsafe_allow_html=True)
     page = st.radio(
         "Navigation",
-        ["🤖 AI Command Center", "🎛️ Command Deck", "🔬 Deep Scan", "🏛️ The Vault", "📈 Earnings Intel", "📊 Comparator", "📌 Watchlist", "🏦 Ownership", "💰 Valuation", "📡 Signal Wire", "🔮 The Oracle", "⚔️ Backtest Arena", "📑 Report Forge", "📱 Social Pulse", "📚 Research Library"],
+        ["🤖 AI Command Center", "🎛️ Command Deck", "🔬 Deep Scan", "🏛️ The Vault", "📈 Earnings Intel", "📊 Comparator", "📌 Watchlist", "🏦 Ownership", "💰 Valuation", "📊 Risk Lab", "📡 Signal Wire", "🔮 The Oracle", "⚔️ Backtest Arena", "📑 Report Forge", "📱 Social Pulse", "📚 Research Library"],
         label_visibility="collapsed"
     )
     
@@ -510,6 +510,7 @@ if page == "🤖 AI Command Center":
         | 🏦 **Ownership Intel** | Institutional holders, insider activity, ownership breakdown | *"Who owns NVDA?"* |
         | 📌 **Watchlist** | Add/remove stocks, view watchlist, save research notes | *"Add NVDA to watchlist"* |
         | 💰 **DCF Valuation** | Intrinsic value, WACC, terminal value, sensitivity analysis | *"Run DCF on AAPL"* |
+        | 📊 **Risk Analysis** | VaR, Sharpe ratio, drawdown, volatility, beta, correlation | *"Risk analysis for NVDA"* |
         """)
     
     st.divider()
@@ -588,6 +589,21 @@ if page == "🤖 AI Command Center":
     with col12:
         if st.button("📊 MSFT Sensitivity", use_container_width=True):
             st.session_state.pending_prompt = "Show me sensitivity analysis for MSFT DCF valuation"
+            st.rerun()
+    
+    # Risk quick actions
+    col13, col14, col15 = st.columns(3)
+    with col13:
+        if st.button("📊 NVDA Risk", use_container_width=True):
+            st.session_state.pending_prompt = "What's the risk profile of NVDA? Show me VaR, Sharpe ratio, and drawdown analysis."
+            st.rerun()
+    with col14:
+        if st.button("📉 AAPL Drawdown", use_container_width=True):
+            st.session_state.pending_prompt = "Show me drawdown analysis for AAPL"
+            st.rerun()
+    with col15:
+        if st.button("🔗 Tech Correlation", use_container_width=True):
+            st.session_state.pending_prompt = "Show correlation between NVDA, AMD, INTC, and SPY"
             st.rerun()
     
     # User input
@@ -1095,16 +1111,16 @@ elif page == "🔬 Deep Scan":
                                 st.error(f"Error generating {chart_type} chart: {str(chart_err)}")
                         else:
                             # Use Plotly for standard chart types
-                            fig = go.Figure()
-                            
+                        fig = go.Figure()
+                        
                             # Dynamic chart type
                             if chart_type == "Candlestick":
-                                fig.add_trace(go.Candlestick(
-                                    x=stock_data.index,
-                                    open=stock_data['Open'],
-                                    high=stock_data['High'],
-                                    low=stock_data['Low'],
-                                    close=stock_data['Close'],
+                        fig.add_trace(go.Candlestick(
+                            x=stock_data.index,
+                            open=stock_data['Open'],
+                            high=stock_data['High'],
+                            low=stock_data['Low'],
+                            close=stock_data['Close'],
                                     name='Price',
                                     increasing_line_color='#00c896',
                                     decreasing_line_color='#ff4757'
@@ -1121,8 +1137,8 @@ elif page == "🔬 Deep Scan":
                                     decreasing_line_color='#ff4757'
                                 ))
                             elif chart_type == "Line":
-                                fig.add_trace(go.Scatter(
-                                    x=stock_data.index,
+                        fig.add_trace(go.Scatter(
+                            x=stock_data.index,
                                     y=stock_data['Close'],
                                     name='Close Price',
                                     line=dict(color='#d4af37', width=2)
@@ -1142,52 +1158,52 @@ elif page == "🔬 Deep Scan":
                             for i, ma_period in enumerate(show_ma):
                                 ma_col = f'MA{ma_period}'
                                 stock_data[ma_col] = stock_data['Close'].rolling(window=ma_period).mean()
-                                fig.add_trace(go.Scatter(
-                                    x=stock_data.index,
+                        fig.add_trace(go.Scatter(
+                            x=stock_data.index,
                                     y=stock_data[ma_col],
                                     name=f'MA{ma_period}',
                                     line=dict(color=ma_colors[i % len(ma_colors)], width=1.5)
-                                ))
-                            
-                            fig.update_layout(
-                                template="plotly_dark",
-                                paper_bgcolor='rgba(0,0,0,0)',
+                        ))
+                        
+                        fig.update_layout(
+                            template="plotly_dark",
+                            paper_bgcolor='rgba(0,0,0,0)',
                                 plot_bgcolor='rgba(12,12,18,0.95)',
                                 font=dict(family="DM Sans", color="#a0a0a8"),
                                 xaxis=dict(gridcolor='rgba(255,255,255,0.03)', rangeslider=dict(visible=False)),
                                 yaxis=dict(gridcolor='rgba(255,255,255,0.03)', title="Price ($)"),
-                                height=500,
+                            height=500,
                                 legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
-                            )
-                            
-                            st.plotly_chart(fig, use_container_width=True)
+                        )
+                        
+                        st.plotly_chart(fig, use_container_width=True)
                     
                     with tab2:
                         # Volume chart (conditional on checkbox)
                         if show_volume:
-                            fig_vol = go.Figure()
+                        fig_vol = go.Figure()
                             colors = ['#00c896' if stock_data['Close'].iloc[i] >= stock_data['Open'].iloc[i] 
                                       else '#ff4757' for i in range(len(stock_data))]
-                            
-                            fig_vol.add_trace(go.Bar(
-                                x=stock_data.index,
-                                y=stock_data['Volume'],
-                                marker_color=colors,
-                                name='Volume'
-                            ))
-                            
-                            fig_vol.update_layout(
-                                title="Trading Volume",
-                                template="plotly_dark",
-                                paper_bgcolor='rgba(0,0,0,0)',
+                        
+                        fig_vol.add_trace(go.Bar(
+                            x=stock_data.index,
+                            y=stock_data['Volume'],
+                            marker_color=colors,
+                            name='Volume'
+                        ))
+                        
+                        fig_vol.update_layout(
+                            title="Trading Volume",
+                            template="plotly_dark",
+                            paper_bgcolor='rgba(0,0,0,0)',
                                 plot_bgcolor='rgba(12,12,18,0.95)',
                                 font=dict(family="DM Sans", color="#a0a0a8"),
                                 xaxis=dict(gridcolor='rgba(255,255,255,0.03)'),
                                 yaxis=dict(gridcolor='rgba(255,255,255,0.03)'),
-                                height=300
-                            )
-                            
-                            st.plotly_chart(fig_vol, use_container_width=True)
+                            height=300
+                        )
+                        
+                        st.plotly_chart(fig_vol, use_container_width=True)
                         else:
                             st.info("📊 Enable 'Show Volume' checkbox to view volume data")
                         
@@ -1395,7 +1411,7 @@ elif page == "📈 Earnings Intel":
     
     # Input section
     col1, col2 = st.columns([3, 1])
-    with col1:
+                                with col1:
         earnings_ticker = st.text_input("Stock Ticker", value="NVDA", placeholder="Enter ticker symbol").upper().strip()
     with col2:
         earnings_quarters = st.selectbox("Quarters History", [4, 6, 8, 12], index=2)
@@ -1859,7 +1875,7 @@ elif page == "📌 Watchlist":
                         "Notes": item.get("notes", "")[:30] + "..." if item.get("notes") and len(item.get("notes", "")) > 30 else item.get("notes", "—"),
                         "Added Date": item.get("added_at", "")[:10] if item.get("added_at") else "N/A"
                     })
-                except Exception as e:
+            except Exception as e:
                     watchlist_data.append({
                         "Ticker": ticker_sym,
                         "Current": "Error",
@@ -2494,6 +2510,282 @@ elif page == "💰 Valuation":
         - Ask "Run a DCF analysis on AAPL" in the AI Command Center
         - Request "What's the intrinsic value of NVDA based on DCF?"
         - Say "Show me sensitivity analysis for MSFT valuation"
+        """)
+
+elif page == "📊 Risk Lab":
+    from aurelius.functional.risk import RiskAnalytics
+    from aurelius.functional.charting import RiskCharts
+    import tempfile
+    
+    st.title("📊 Risk Analytics Lab")
+    st.caption("Comprehensive risk metrics: VaR, Sharpe Ratio, Drawdown, Volatility, Beta & Alpha")
+    
+    st.divider()
+    
+    # Tabs for different views
+    risk_tab1, risk_tab2, risk_tab3, risk_tab4 = st.tabs(["📊 Overview", "📉 Drawdown", "🌊 Volatility", "🔗 Correlation"])
+    
+    with risk_tab1:
+        st.markdown("### Risk Overview")
+        
+        col1, col2 = st.columns([2, 1])
+        with col1:
+            risk_period = st.selectbox("Analysis Period", ["1y", "6m", "3m", "2y"], index=0, key="risk_period")
+        with col2:
+            benchmark = st.text_input("Benchmark", value="SPY", key="risk_benchmark")
+        
+        if st.button("🚀 Run Risk Analysis", use_container_width=True, key="run_risk"):
+            with st.spinner("Calculating risk metrics..."):
+                # Get all risk metrics
+                var = RiskAnalytics.calculate_var(ticker, period=risk_period)
+                sharpe = RiskAnalytics.calculate_sharpe_ratio(ticker, period=risk_period)
+                drawdown = RiskAnalytics.calculate_max_drawdown(ticker, period=risk_period)
+                volatility = RiskAnalytics.calculate_volatility(ticker, period=risk_period)
+                beta_alpha = RiskAnalytics.calculate_beta_alpha(ticker, benchmark=benchmark, period=risk_period)
+                
+                has_error = any("error" in x for x in [var, sharpe, drawdown, volatility, beta_alpha])
+                
+                if has_error:
+                    st.error("Error calculating risk metrics. Please check the ticker symbol.")
+                else:
+                    # Risk Score Card
+                    risk_color = "#ff4757" if volatility['risk_level'] in ["High", "Very High"] else "#00c896" if volatility['risk_level'] in ["Low", "Very Low"] else "#d4af37"
+                    st.markdown(f"""
+                    <div style="
+                        background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(13, 13, 18, 0.9) 100%);
+                        border: 1px solid {risk_color};
+                        border-radius: 16px;
+                        padding: 2rem;
+                        text-align: center;
+                        margin-bottom: 1.5rem;
+                    ">
+                        <p style="color: #a0a0a8; font-size: 0.9rem; margin-bottom: 0.5rem;">RISK LEVEL</p>
+                        <h1 style="color: {risk_color}; font-size: 2.5rem; margin: 0; font-weight: 700;">{volatility['risk_level'].upper()}</h1>
+                        <p style="color: #a0a0a8; font-size: 1rem; margin-top: 0.5rem;">
+                            Annual Volatility: <span style="color: white; font-weight: 600;">{volatility['historical_volatility_percent']}%</span>
+                        </p>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    # Key Metrics Row 1
+                    col1, col2, col3, col4 = st.columns(4)
+                    with col1:
+                        st.metric("VaR (95%, 1-Day)", f"{var['var_percent']}%", f"${var['var_dollar_per_share']}/share")
+                    with col2:
+                        st.metric("Sharpe Ratio", f"{sharpe['sharpe_ratio']}", sharpe['interpretation'][:20])
+                    with col3:
+                        st.metric("Max Drawdown", f"{drawdown['max_drawdown_percent']}%")
+                    with col4:
+                        st.metric("Beta", f"{beta_alpha['beta']}", beta_alpha['beta_interpretation'][:20])
+                    
+                    # Key Metrics Row 2
+                    col1, col2, col3, col4 = st.columns(4)
+                    with col1:
+                        st.metric("Sortino Ratio", f"{sharpe['sortino_ratio']}")
+                    with col2:
+                        st.metric("Annual Return", f"{sharpe['annual_return_percent']}%")
+                    with col3:
+                        st.metric("Alpha", f"{beta_alpha['alpha_percent']}%")
+                    with col4:
+                        st.metric("Correlation", f"{beta_alpha['correlation']}")
+                    
+                    st.divider()
+                    
+                    # VaR Distribution Chart
+                    st.markdown("### 📊 Value at Risk Distribution")
+                    with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
+                        RiskCharts.var_distribution_chart(ticker, tmp.name)
+                        st.image(tmp.name)
+                    
+                    # Detailed Breakdown
+                    st.markdown("### 📋 Detailed Risk Breakdown")
+                    
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        st.markdown("**Value at Risk**")
+                        var_data = {
+                            "Metric": ["95% VaR", "99% VaR (Est)", "CVaR (Expected Shortfall)", "Current Price"],
+                            "Value": [f"{var['var_percent']}%", f"{var['var_percent'] * 1.5:.2f}%", f"{var['cvar_percent']}%", f"${var['current_price']}"]
+                        }
+                        st.dataframe(var_data, use_container_width=True, hide_index=True)
+                        
+                        st.markdown("**Performance Attribution**")
+                        perf_data = {
+                            "Metric": ["Annual Return", "Risk-Free Rate", "Excess Return", "Expected Return (CAPM)", "Alpha"],
+                            "Value": [f"{sharpe['annual_return_percent']}%", f"{sharpe['risk_free_rate_percent']}%", 
+                                     f"{sharpe['annual_return_percent'] - sharpe['risk_free_rate_percent']:.2f}%",
+                                     f"{beta_alpha['expected_return_percent']}%", f"{beta_alpha['alpha_percent']}%"]
+                        }
+                        st.dataframe(perf_data, use_container_width=True, hide_index=True)
+                    
+                    with col2:
+                        st.markdown("**Volatility Metrics**")
+                        vol_data = {
+                            "Metric": ["Historical Vol (Annual)", "Current Rolling Vol", "Vol Percentile", "Max Vol (Period)", "Min Vol (Period)"],
+                            "Value": [f"{volatility['historical_volatility_percent']}%", f"{volatility['current_rolling_volatility_percent']}%", 
+                                     f"{volatility['volatility_percentile']}th", f"{volatility['max_rolling_volatility_percent']}%", 
+                                     f"{volatility['min_rolling_volatility_percent']}%"]
+                        }
+                        st.dataframe(vol_data, use_container_width=True, hide_index=True)
+                        
+                        st.markdown("**Market Sensitivity**")
+                        beta_data = {
+                            "Metric": ["Beta", "R-Squared", "Correlation", "Benchmark Return"],
+                            "Value": [f"{beta_alpha['beta']}", f"{beta_alpha['r_squared']}", 
+                                     f"{beta_alpha['correlation']}", f"{beta_alpha['market_annual_return_percent']}%"]
+                        }
+                        st.dataframe(beta_data, use_container_width=True, hide_index=True)
+    
+    with risk_tab2:
+        st.markdown("### 📉 Drawdown Analysis")
+        st.markdown("Visualize peak-to-trough declines and recovery patterns.")
+        
+        dd_period = st.selectbox("Period", ["1y", "2y", "6m", "3m"], index=0, key="dd_period")
+        
+        if st.button("📉 Generate Drawdown Chart", use_container_width=True, key="gen_dd"):
+            with st.spinner("Generating drawdown analysis..."):
+                dd = RiskAnalytics.calculate_max_drawdown(ticker, period=dd_period)
+                
+                if "error" in dd:
+                    st.error(f"Error: {dd['error']}")
+                else:
+                    # Metrics
+                    col1, col2, col3, col4 = st.columns(4)
+                    with col1:
+                        st.metric("Max Drawdown", f"{dd['max_drawdown_percent']}%")
+                    with col2:
+                        st.metric("Peak Price", f"${dd['peak_price']}")
+                    with col3:
+                        st.metric("Trough Price", f"${dd['trough_price']}")
+                    with col4:
+                        st.metric("Current DD", f"{dd['current_drawdown_percent']}%")
+                    
+                    # Chart
+                    with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
+                        RiskCharts.drawdown_chart(ticker, dd_period, tmp.name)
+                        st.image(tmp.name)
+                    
+                    st.info(f"""
+                    **Interpretation:**
+                    - Max Drawdown occurred from **{dd['max_drawdown_peak_date']}** to **{dd['max_drawdown_trough_date']}**
+                    - Recovery: **{'Yes' if dd['recovered'] else 'No'}** {f"(took {dd['recovery_days']} days)" if dd['recovery_days'] else ""}
+                    - Average Drawdown: **{dd['average_drawdown_percent']}%**
+                    """)
+    
+    with risk_tab3:
+        st.markdown("### 🌊 Volatility Analysis")
+        st.markdown("Track historical and rolling volatility trends.")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            vol_period = st.selectbox("Period", ["1y", "2y", "6m"], index=0, key="vol_period")
+        with col2:
+            vol_window = st.slider("Rolling Window (Days)", 10, 60, 30, key="vol_window")
+        
+        if st.button("🌊 Generate Volatility Chart", use_container_width=True, key="gen_vol"):
+            with st.spinner("Generating volatility analysis..."):
+                vol = RiskAnalytics.calculate_volatility(ticker, period=vol_period, window=vol_window)
+                
+                if "error" in vol:
+                    st.error(f"Error: {vol['error']}")
+                else:
+                    # Metrics
+                    col1, col2, col3, col4 = st.columns(4)
+                    with col1:
+                        st.metric("Historical Vol", f"{vol['historical_volatility_percent']}%")
+                    with col2:
+                        st.metric("Current Rolling", f"{vol['current_rolling_volatility_percent']}%")
+                    with col3:
+                        st.metric("Percentile", f"{vol['volatility_percentile']}th")
+                    with col4:
+                        st.metric("Risk Level", vol['risk_level'])
+                    
+                    # Chart
+                    with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
+                        RiskCharts.rolling_volatility_chart(ticker, vol_period, vol_window, tmp.name)
+                        st.image(tmp.name)
+    
+    with risk_tab4:
+        st.markdown("### 🔗 Correlation Analysis")
+        st.markdown("Analyze how stocks move together - useful for portfolio diversification.")
+        
+        corr_tickers = st.text_input("Enter tickers (comma-separated)", value=f"{ticker},AAPL,MSFT,GOOGL,SPY", key="corr_tickers")
+        corr_period = st.selectbox("Period", ["1y", "2y", "6m", "3m"], index=0, key="corr_period")
+        
+        if st.button("🔗 Generate Correlation Matrix", use_container_width=True, key="gen_corr"):
+            with st.spinner("Calculating correlations..."):
+                tickers_list = [t.strip().upper() for t in corr_tickers.split(",")]
+                
+                corr = RiskAnalytics.correlation_matrix(tickers_list, period=corr_period)
+                
+                if "error" in corr:
+                    st.error(f"Error: {corr['error']}")
+                else:
+                    # Summary
+                    if corr.get("highest_correlation"):
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            st.metric("Highest Correlation", 
+                                     f"{corr['highest_correlation']['pair']}", 
+                                     f"{corr['highest_correlation']['correlation']}")
+                        with col2:
+                            st.metric("Lowest Correlation", 
+                                     f"{corr['lowest_correlation']['pair']}", 
+                                     f"{corr['lowest_correlation']['correlation']}")
+                    
+                    # Chart
+                    with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
+                        RiskCharts.correlation_heatmap(tickers_list, corr_period, tmp.name)
+                        st.image(tmp.name)
+                    
+                    # Correlation Table
+                    st.markdown("#### All Correlation Pairs")
+                    import pandas as pd
+                    pairs_df = pd.DataFrame(corr['all_pairs'])
+                    pairs_df['correlation'] = pairs_df['correlation'].apply(lambda x: f"{x:.3f}")
+                    st.dataframe(pairs_df, use_container_width=True, hide_index=True)
+                    
+                    st.info("""
+                    **Interpretation:**
+                    - **+1.0**: Perfect positive correlation (move together)
+                    - **0.0**: No correlation (independent)
+                    - **-1.0**: Perfect negative correlation (move opposite)
+                    - For diversification, look for low or negative correlations
+                    """)
+    
+    # Tips Section
+    with st.expander("💡 Risk Analytics Guide"):
+        st.markdown("""
+        ### Understanding Risk Metrics
+        
+        **Value at Risk (VaR):**
+        - 95% VaR = "We're 95% confident the loss won't exceed this amount"
+        - CVaR (Expected Shortfall) = Average loss when VaR is exceeded
+        
+        **Sharpe & Sortino Ratios:**
+        - Sharpe > 1: Good risk-adjusted returns
+        - Sharpe > 2: Excellent risk-adjusted returns
+        - Sortino only penalizes downside volatility (more investor-friendly)
+        
+        **Maximum Drawdown:**
+        - Largest peak-to-trough decline
+        - Critical for understanding worst-case scenarios
+        - Recovery time matters for liquidity planning
+        
+        **Beta:**
+        - Beta = 1: Moves with market
+        - Beta > 1: More volatile than market (aggressive)
+        - Beta < 1: Less volatile than market (defensive)
+        
+        **Alpha:**
+        - Positive Alpha = Outperformance vs CAPM expectation
+        - Negative Alpha = Underperformance
+        
+        **AI Integration:**
+        - Ask "What's the risk profile of NVDA?" in the AI Command Center
+        - Request "Show me the drawdown analysis for AAPL"
+        - Say "Compare volatility of NVDA, AMD, and INTC"
         """)
 
 elif page == "📡 Signal Wire":

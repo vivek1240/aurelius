@@ -21,6 +21,8 @@ from .earnings import EarningsIntel
 from .storage import WatchlistManager, ResearchManager, AlertManager
 from .ownership import OwnershipIntel
 from .dcf import DCFModel
+from .risk import RiskAnalytics
+from .charting import RiskCharts
 
 
 # ============================================================================
@@ -425,6 +427,46 @@ TOOL_DEFINITIONS = [
                 "required": ["ticker"]
             }
         }
+    },
+    # Risk Analysis Tool
+    {
+        "type": "function",
+        "function": {
+            "name": "get_risk_analysis",
+            "description": "Get comprehensive risk analysis including Value at Risk (VaR), Sharpe Ratio, Maximum Drawdown, Volatility, Beta, and Alpha. Can also generate risk charts like VaR distribution, drawdown analysis, volatility trends, and correlation heatmaps.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "ticker": {
+                        "type": "string",
+                        "description": "Stock ticker symbol (e.g., NVDA, AAPL)"
+                    },
+                    "period": {
+                        "type": "string",
+                        "enum": ["1m", "3m", "6m", "1y", "2y"],
+                        "description": "Time period for analysis (default 1y)",
+                        "default": "1y"
+                    },
+                    "include_chart": {
+                        "type": "boolean",
+                        "description": "Whether to generate a chart (default true)",
+                        "default": True
+                    },
+                    "chart_type": {
+                        "type": "string",
+                        "enum": ["var", "drawdown", "volatility", "correlation"],
+                        "description": "Type of chart: 'var' for VaR distribution, 'drawdown' for drawdown analysis, 'volatility' for rolling volatility, 'correlation' for correlation heatmap (requires compare_with)",
+                        "default": "drawdown"
+                    },
+                    "compare_with": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Other tickers to compare correlation with (for 'correlation' chart type)"
+                    }
+                },
+                "required": ["ticker"]
+            }
+        }
     }
 ]
 
@@ -473,6 +515,8 @@ class ToolExecutor:
                 return ToolExecutor._get_ownership_intel(**arguments)
             elif tool_name == "run_dcf_analysis":
                 return ToolExecutor._run_dcf_analysis(**arguments)
+            elif tool_name == "get_risk_analysis":
+                return ToolExecutor._get_risk_analysis(**arguments)
             else:
                 return {"error": f"Unknown tool: {tool_name}"}
         except Exception as e:
@@ -1232,6 +1276,116 @@ INVESTMENT VERDICT:
                     DCFCharts.valuation_waterfall(ticker, tmp_path)
                 else:
                     DCFCharts.valuation_waterfall(ticker, tmp_path)
+                
+                with open(tmp_path, 'rb') as f:
+                    img_data = base64.b64encode(f.read()).decode()
+                
+                os.unlink(tmp_path)
+                
+                result["image_base64"] = img_data
+                result["has_image"] = True
+            
+            return result
+            
+        except Exception as e:
+            return {"error": str(e)}
+    
+    @staticmethod
+    def _get_risk_analysis(
+        ticker: str,
+        period: str = "1y",
+        include_chart: bool = True,
+        chart_type: str = "drawdown",
+        compare_with: List[str] = None
+    ) -> Dict[str, Any]:
+        """Run comprehensive risk analysis"""
+        try:
+            # Get all risk metrics
+            var = RiskAnalytics.calculate_var(ticker, period=period)
+            sharpe = RiskAnalytics.calculate_sharpe_ratio(ticker, period=period)
+            drawdown = RiskAnalytics.calculate_max_drawdown(ticker, period=period)
+            volatility = RiskAnalytics.calculate_volatility(ticker, period=period)
+            beta_alpha = RiskAnalytics.calculate_beta_alpha(ticker, period=period)
+            
+            # Check for errors
+            has_error = False
+            error_msg = ""
+            for metric in [var, sharpe, drawdown, volatility, beta_alpha]:
+                if "error" in metric:
+                    has_error = True
+                    error_msg = metric["error"]
+                    break
+            
+            if has_error:
+                return {"error": error_msg, "ticker": ticker}
+            
+            # Format summary
+            summary_text = f"""
+RISK ANALYSIS FOR {ticker.upper()} ({period} period)
+{'='*60}
+
+📊 VALUE AT RISK (95% Confidence, 1-Day):
+├── VaR: {var['var_percent']}% (${var['var_dollar_per_share']} per share)
+├── CVaR (Expected Shortfall): {var['cvar_percent']}%
+└── {var['interpretation']}
+
+📈 RISK-ADJUSTED RETURNS:
+├── Sharpe Ratio: {sharpe['sharpe_ratio']}
+├── Sortino Ratio: {sharpe['sortino_ratio']}
+├── Annual Return: {sharpe['annual_return_percent']}%
+├── Annual Volatility: {sharpe['annual_volatility_percent']}%
+└── {sharpe['interpretation']}
+
+📉 MAXIMUM DRAWDOWN:
+├── Max Drawdown: {drawdown['max_drawdown_percent']}%
+├── Peak: ${drawdown['peak_price']} ({drawdown['max_drawdown_peak_date']})
+├── Trough: ${drawdown['trough_price']} ({drawdown['max_drawdown_trough_date']})
+├── Recovered: {'Yes' if drawdown['recovered'] else 'No'}
+└── Current Drawdown: {drawdown['current_drawdown_percent']}%
+
+🌊 VOLATILITY:
+├── Historical (Annualized): {volatility['historical_volatility_percent']}%
+├── Current Rolling ({volatility['rolling_window_days']}-day): {volatility['current_rolling_volatility_percent']}%
+├── Volatility Percentile: {volatility['volatility_percentile']}th
+└── Risk Level: {volatility['risk_level']}
+
+🎯 BETA & ALPHA (vs {beta_alpha['benchmark']}):
+├── Beta: {beta_alpha['beta']} ({beta_alpha['beta_interpretation']})
+├── Alpha: {beta_alpha['alpha_percent']}%
+├── Correlation: {beta_alpha['correlation']}
+├── R-squared: {beta_alpha['r_squared']}
+└── {beta_alpha['alpha_interpretation']}
+"""
+            
+            result = {
+                "ticker": ticker,
+                "period": period,
+                "summary": summary_text,
+                "var_percent": var['var_percent'],
+                "sharpe_ratio": sharpe['sharpe_ratio'],
+                "max_drawdown_percent": drawdown['max_drawdown_percent'],
+                "volatility_percent": volatility['historical_volatility_percent'],
+                "beta": beta_alpha['beta'],
+                "alpha_percent": beta_alpha['alpha_percent'],
+                "risk_level": volatility['risk_level']
+            }
+            
+            # Generate chart if requested
+            if include_chart:
+                with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
+                    tmp_path = tmp.name
+                
+                if chart_type == "var":
+                    RiskCharts.var_distribution_chart(ticker, tmp_path)
+                elif chart_type == "drawdown":
+                    RiskCharts.drawdown_chart(ticker, period, tmp_path)
+                elif chart_type == "volatility":
+                    RiskCharts.rolling_volatility_chart(ticker, period, 30, tmp_path)
+                elif chart_type == "correlation" and compare_with:
+                    all_tickers = [ticker] + compare_with
+                    RiskCharts.correlation_heatmap(all_tickers, period, tmp_path)
+                else:
+                    RiskCharts.drawdown_chart(ticker, period, tmp_path)
                 
                 with open(tmp_path, 'rb') as f:
                     img_data = base64.b64encode(f.read()).decode()
