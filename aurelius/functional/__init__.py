@@ -4,7 +4,10 @@ from .coding import CodingUtils, IPythonUtils
 from .quantitative import BackTraderUtils
 from .reportlab import ReportLabUtils
 from .text import TextUtils
-from .rag import get_rag_function
+try:
+    from .rag import get_rag_function
+except (ImportError, ValueError):
+    get_rag_function = None
 from .comparison import StockComparator
 from .earnings import EarningsIntel
 from .ownership import OwnershipIntel
